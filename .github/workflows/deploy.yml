@@ -9,8 +9,9 @@ name: Deploy
 #   SSH_PRIVATE_KEY   private key whose public key is in the server's
 #                     ~/.ssh/authorized_keys (e.g. the "github-actions" pair)
 #   PROD_JWT_SECRET   production JWT secret (>= 32 chars)
-#   PROD_MYSQL_PASSWORD        fincode app user password
-#   PROD_MYSQL_ROOT_PASSWORD   mysql root password
+#   PROD_MYSQL_PASSWORD   host mysqld `fincode`@`%` account password (the
+#                         database itself was created by the admin once; the
+#                         container never needs the mysql root password)
 # Optional secrets: PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET / PAYPAL_WEBHOOK_ID /
 #   PAYPAL_PLAN_DEVELOPER / PAYPAL_PLAN_STARTUP / PAYPAL_PLAN_BUSINESS
 
@@ -132,7 +133,6 @@ jobs:
             # out of git (spec §68); rewritten on every deploy.
             cat > .env <<'ENVEOF'
             MYSQL_PASSWORD=${{ secrets.PROD_MYSQL_PASSWORD }}
-            MYSQL_ROOT_PASSWORD=${{ secrets.PROD_MYSQL_ROOT_PASSWORD }}
             JWT_SECRET=${{ secrets.PROD_JWT_SECRET }}
             CORS_ALLOWED_ORIGINS=${{ inputs.site_url }}
             PAYPAL_ENV=sandbox

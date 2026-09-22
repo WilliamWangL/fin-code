@@ -1,40 +1,16 @@
 name: fincode-prod
 
 # Production stack (FIN-032) deployed by .github/workflows/deploy.yml to
-# /opt/fincode on the server. MySQL and Redis stay on the internal compose
-# network only; api and web are the sole entry points:
+# /opt/fincode on the server. MySQL is the host's own systemd mysqld (the
+# `fincode` database and `fincode`@`%` account live there; Flyway creates the
+# schema on boot), reached through host-gateway exactly like the river stack.
+# Redis stays containerized on the internal network. Entry points:
 #   - web: host 3003 -> container 3000
 #   - api: host 8081 -> container 8080
-# Ports 80/443 (nginx), 3000/3001/3002/48080, 3306/3307/6379/6380/5432 are
-# already taken by other services on this host and must not be reused.
+# Ports 80/443 (nginx), 3000/3001/3002/48080, 3306/6379/5432 are already
+# taken by other services on this host and must not be reused.
 
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: fincode-prod-mysql
-    restart: always
-    environment:
-      MYSQL_DATABASE: fincode
-      MYSQL_USER: fincode
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      TZ: UTC
-    command:
-      # UTF8MB4 + UTC are mandatory (spec §21)
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_0900_ai_ci
-      - --default-time-zone=+00:00
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-      start_period: 20s
-    networks:
-      - fincode
-
   redis:
     image: redis:7-alpine
     container_name: fincode-prod-redis
@@ -57,7 +33,8 @@ services:
       - "0.0.0.0:8081:8080"
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      DATABASE_URL: jdbc:mysql://mysql:3306/fincode?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
+      # Host mysqld via host-gateway (same pattern as the river stack).
+      DATABASE_URL: jdbc:mysql://host.docker.internal:3306/fincode?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
       DATABASE_USERNAME: fincode
       DATABASE_PASSWORD: ${MYSQL_PASSWORD}
       REDIS_HOST: redis
@@ -73,9 +50,9 @@ services:
       PAYPAL_PLAN_STARTUP: ${PAYPAL_PLAN_STARTUP:-}
       PAYPAL_PLAN_BUSINESS: ${PAYPAL_PLAN_BUSINESS:-}
       TZ: UTC
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      mysql:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -103,7 +80,6 @@ services:
       - fincode
 
 volumes:
-  mysql_data:
   redis_data:
 
 networks:
