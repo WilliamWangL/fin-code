@@ -1,0 +1,152 @@
+name: Deploy
+
+# Deploy (FIN-032): build the api and web images, push them to GHCR, then
+# ssh into the server and roll the production stack in /opt/fincode.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   SSH_HOST          server public ip
+#   SSH_USER          ssh user (root)
+#   SSH_PRIVATE_KEY   private key whose public key is in the server's
+#                     ~/.ssh/authorized_keys (e.g. the "github-actions" pair)
+#   PROD_JWT_SECRET   production JWT secret (>= 32 chars)
+#   PROD_MYSQL_PASSWORD        fincode app user password
+#   PROD_MYSQL_ROOT_PASSWORD   mysql root password
+# Optional secrets: PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET / PAYPAL_WEBHOOK_ID /
+#   PAYPAL_PLAN_DEVELOPER / PAYPAL_PLAN_STARTUP / PAYPAL_PLAN_BUSINESS
+
+on:
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: "Public site URL baked into the web build (NEXT_PUBLIC_SITE_URL)"
+        required: true
+        default: "http://43.153.80.15:3003"
+      api_base_url:
+        description: "Public API base URL browsers will call (NEXT_PUBLIC_API_BASE_URL)"
+        required: true
+        default: "http://43.153.80.15:8081/v1"
+      paypal_client_id:
+        description: "Public PayPal client id (leave empty to keep billing disabled)"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  # GHCR requires lowercase image paths; the repo owner contains uppercase.
+  REPO_LC: williamwangl/fin-code
+
+jobs:
+  build-api:
+    name: Build & push api image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/api
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.REPO_LC }}/fincode-api:latest
+            ${{ env.REGISTRY }}/${{ env.REPO_LC }}/fincode-api:${{ github.sha }}
+
+  build-web:
+    name: Build & push web image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/web
+          push: true
+          build-args: |
+            NEXT_PUBLIC_SITE_URL=${{ inputs.site_url }}
+            NEXT_PUBLIC_API_BASE_URL=${{ inputs.api_base_url }}
+            NEXT_PUBLIC_PAYPAL_CLIENT_ID=${{ inputs.paypal_client_id }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.REPO_LC }}/fincode-web:latest
+            ${{ env.REGISTRY }}/${{ env.REPO_LC }}/fincode-web:${{ github.sha }}
+
+  deploy:
+    name: Deploy to server
+    runs-on: ubuntu-latest
+    needs: [build-api, build-web]
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy compose file to the server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: docker-compose.prod.yml
+          target: /opt/fincode
+          strip_components: 0
+
+      - name: Roll the production stack
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -eu
+            cd /opt/fincode
+
+            # GITHUB_TOKEN is short-lived: log in just long enough to pull.
+            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io \
+              -u ${{ github.repository_owner }} --password-stdin
+
+            # Environment file consumed by docker-compose.prod.yml. Kept
+            # out of git (spec §68); rewritten on every deploy.
+            cat > .env <<'ENVEOF'
+            MYSQL_PASSWORD=${{ secrets.PROD_MYSQL_PASSWORD }}
+            MYSQL_ROOT_PASSWORD=${{ secrets.PROD_MYSQL_ROOT_PASSWORD }}
+            JWT_SECRET=${{ secrets.PROD_JWT_SECRET }}
+            CORS_ALLOWED_ORIGINS=${{ inputs.site_url }}
+            PAYPAL_ENV=sandbox
+            PAYPAL_CLIENT_ID=${{ inputs.paypal_client_id }}
+            PAYPAL_CLIENT_SECRET=${{ secrets.PAYPAL_CLIENT_SECRET }}
+            PAYPAL_WEBHOOK_ID=${{ secrets.PAYPAL_WEBHOOK_ID }}
+            PAYPAL_PLAN_DEVELOPER=${{ secrets.PAYPAL_PLAN_DEVELOPER }}
+            PAYPAL_PLAN_STARTUP=${{ secrets.PAYPAL_PLAN_STARTUP }}
+            PAYPAL_PLAN_BUSINESS=${{ secrets.PAYPAL_PLAN_BUSINESS }}
+            ENVEOF
+            chmod 600 .env
+
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker image prune -f
+
+            docker compose -f docker-compose.prod.yml ps

@@ -1,0 +1,72 @@
+spring:
+  application:
+    name: fincode-api
+  profiles:
+    # Environments are separated per spec §68: local / development / staging / production
+    default: local
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema (spec §70); Hibernate only validates entity mapping
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    # JSON uses snake_case on the wire (spec §25 examples, docs portal)
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  mvc:
+    # Route unmatched paths to the exception handler so 404s use the unified error envelope
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+
+# Developer account authentication (FIN-003). JWT_SECRET must be provided in
+# every real environment (spec §68); the local profile carries a dev default.
+fincode:
+  auth:
+    jwt-secret: ${JWT_SECRET:}
+    access-token-ttl: 15m
+    refresh-token-ttl: 30d
+    password-reset-ttl: 1h
+    expose-reset-token: false
+  # Browser origins allowed to call the API from the developer portal
+  # (FIN-017). Set the comma-separated CORS_ALLOWED_ORIGINS in real
+  # environments; localhost:3000 is the Next.js dev server.
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  # PayPal subscription billing (FIN-019, replacing the Stripe plan by user
+  # decision). Credentials come from the environment (spec §68); billing stays
+  # disabled until client id, secret and the PayPal plan ids are set.
+  paypal:
+    environment: ${PAYPAL_ENV:sandbox}
+    client-id: ${PAYPAL_CLIENT_ID:}
+    client-secret: ${PAYPAL_CLIENT_SECRET:}
+    webhook-id: ${PAYPAL_WEBHOOK_ID:}
+    return-url: ${PAYPAL_RETURN_URL:http://localhost:3000/dashboard/billing}
+    cancel-url: ${PAYPAL_CANCEL_URL:http://localhost:3000/dashboard/billing}
+    # PayPal billing plan ids (Products & Plans in the PayPal dashboard);
+    # empty values keep the plan off the online checkout.
+    plans:
+      DEVELOPER: ${PAYPAL_PLAN_DEVELOPER:}
+      STARTUP: ${PAYPAL_PLAN_STARTUP:}
+      BUSINESS: ${PAYPAL_PLAN_BUSINESS:}
+
+server:
+  port: 8080
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p --- [%15.15t] %-40.40logger{39} : [%X{requestId}] %m%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

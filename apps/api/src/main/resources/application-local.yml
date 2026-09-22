@@ -1,0 +1,21 @@
+# Local development profile.
+# Secrets must never be committed (spec §68); these defaults point at the
+# docker-compose MySQL on port 3307 and are safe for local use only.
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:mysql://localhost:3307/fincode?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8}
+    username: ${DATABASE_USERNAME:fincode}
+    password: ${DATABASE_PASSWORD:fincode_dev}
+    hikari:
+      maximum-pool-size: 10
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6380}
+
+# Development-only auth defaults; never reuse these values outside local.
+fincode:
+  auth:
+    jwt-secret: ${JWT_SECRET:fincode-local-dev-jwt-secret-change-me-0123456789abcdef}
+    # No mailer yet in local: the reset endpoint echoes the token for testing.
+    expose-reset-token: ${EXPOSE_RESET_TOKEN:true}

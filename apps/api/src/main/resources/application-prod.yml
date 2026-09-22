@@ -1,0 +1,20 @@
+# Production profile (spec §68: environment separation local/development/
+# staging/production). Every value is injected by the container environment
+# via docker-compose.prod.yml; nothing here is a secret or a default secret.
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+fincode:
+  auth:
+    jwt-secret: ${JWT_SECRET}
+    # Never expose reset tokens in production responses.
+    expose-reset-token: false

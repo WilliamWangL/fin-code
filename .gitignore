@@ -1,0 +1,28 @@
+# --- Java / Maven (apps/api) ---
+apps/api/target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# --- Node / Next.js (apps/web) ---
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+.DS_Store
+
+# --- IDE ---
+.idea/
+*.iml
+.vscode/
+
+# --- OS ---
+.DS_Store
+
+# --- Secrets (spec §68: never commit secrets) ---
+.env
+.env.local
+.env.*.local
+*.pem

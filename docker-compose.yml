@@ -1,0 +1,43 @@
+name: fincode
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: fincode-mysql
+    restart: unless-stopped
+    ports:
+      # Host 3306 is occupied by the system MySQL, so dev uses 3307
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: fincode
+      MYSQL_USER: fincode
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-fincode_dev}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_dev}
+      TZ: UTC
+    command:
+      # UTF8MB4 + UTC are mandatory (spec §21)
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+00:00
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    container_name: fincode-redis
+    restart: unless-stopped
+    ports:
+      # Host 6379 is occupied; reserved for rate limiting / caching (FIN-013)
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  mysql_data:
+  redis_data:

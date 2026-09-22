@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --muted: #eef2f7;
+  --muted-foreground: #526074;
+  --border: #dde5ee;
+  --input: #cbd5e1;
+  --primary: #0b5cad;
+  --primary-foreground: #ffffff;
+  --secondary: #e8eef6;
+  --secondary-foreground: #123a63;
+  --accent: #0d9488;
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #15803d;
+  --warning: #b45309;
+  --ring: #0b5cad;
+  --radius: 0.625rem;
+}
+
+.dark {
+  --background: #0a1020;
+  --foreground: #e3eaf3;
+  --card: #101a2e;
+  --card-foreground: #e3eaf3;
+  --muted: #1a2740;
+  --muted-foreground: #8fa0b6;
+  --border: #22304b;
+  --input: #2c3d5c;
+  --primary: #4c9ffe;
+  --primary-foreground: #06111f;
+  --secondary: #1c2b47;
+  --secondary-foreground: #cddcf3;
+  --accent: #2dd4bf;
+  --accent-foreground: #04241f;
+  --destructive: #f87171;
+  --destructive-foreground: #1a0505;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --ring: #4c9ffe;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --font-sans:
+    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--primary) 22%, transparent);
+  }
+}
