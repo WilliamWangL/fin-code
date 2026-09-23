@@ -1,6 +1,8 @@
 package com.fincode.api.mapper;
 
 import com.fincode.api.domain.model.BankBranch;
+import com.fincode.api.domain.model.BankRoutingDirectory;
+import com.fincode.api.domain.model.BankSwiftCodeDirectory;
 import com.fincode.api.domain.model.Country;
 import com.fincode.api.domain.model.DataSource;
 import com.fincode.api.domain.model.FinancialInstitution;
@@ -76,6 +78,41 @@ public final class IdentifierMapper {
                 branchState(resolved.branch()),
                 resolved.identifier().getStatus().name(),
                 toSourceInfo(resolved.source()));
+    }
+
+    /**
+     * Maps a bank_swift_code_directory row (GET /v1/swift/{code} backend).
+     * The directory is self-contained: no institution/source join, and entries
+     * are treated as active directory records.
+     */
+    public static SwiftData toSwiftData(BankSwiftCodeDirectory row) {
+        SwiftFormat format = SwiftValidator.parse(row.getSwiftCode()) instanceof SwiftValidator.Parts parts
+                ? new SwiftFormat(parts.institutionCode(), parts.countryCode(), parts.locationCode(), parts.branchCode())
+                : null;
+        return new SwiftData(
+                row.getSwiftCode(),
+                row.getSwiftCode(),
+                format,
+                directorySummary(row.getBankName(), row.getCountryCode()),
+                row.getCity(),
+                "ACTIVE",
+                null);
+    }
+
+    /** Maps a bank_routing_directory row (GET /v1/routing/{number} backend). */
+    public static RoutingData toRoutingData(BankRoutingDirectory row) {
+        return new RoutingData(
+                row.getRoutingNumber(),
+                Boolean.TRUE.equals(row.getChecksumValid()),
+                directorySummary(row.getBankName(), null),
+                row.getCity(),
+                row.getState(),
+                "ACTIVE",
+                null);
+    }
+
+    private static BankSummary directorySummary(String bankName, String countryIso2) {
+        return new BankSummary(null, bankName, null, null, countryIso2, null);
     }
 
     public static SortCodeData toSortCodeData(ResolvedIdentifier resolved) {

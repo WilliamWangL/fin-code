@@ -16,12 +16,16 @@ import com.fincode.api.domain.enums.Plan;
 import com.fincode.api.domain.model.ApiKey;
 import com.fincode.api.domain.model.BankBranch;
 import com.fincode.api.domain.model.BankIdentifier;
+import com.fincode.api.domain.model.BankRoutingDirectory;
+import com.fincode.api.domain.model.BankSwiftCodeDirectory;
 import com.fincode.api.domain.model.Country;
 import com.fincode.api.domain.model.FinancialInstitution;
 import com.fincode.api.domain.model.IbanCountryFormat;
 import com.fincode.api.domain.repository.ApiKeyRepository;
 import com.fincode.api.domain.repository.BankBranchRepository;
 import com.fincode.api.domain.repository.BankIdentifierRepository;
+import com.fincode.api.domain.repository.BankRoutingDirectoryRepository;
+import com.fincode.api.domain.repository.BankSwiftCodeDirectoryRepository;
 import com.fincode.api.domain.repository.CountryRepository;
 import com.fincode.api.domain.repository.FinancialInstitutionRepository;
 import com.fincode.api.domain.repository.IbanCountryFormatRepository;
@@ -66,6 +70,12 @@ class ApiContractTest {
 
     @Autowired
     private BankIdentifierRepository identifierRepository;
+
+    @Autowired
+    private BankSwiftCodeDirectoryRepository swiftDirectoryRepository;
+
+    @Autowired
+    private BankRoutingDirectoryRepository routingDirectoryRepository;
 
     @Autowired
     private BankBranchRepository branchRepository;
@@ -130,6 +140,9 @@ class ApiContractTest {
         saveIdentifier(barclays.getId(), null, IdentifierType.SORT_CODE, "200000", gb);
         saveIdentifier(commbank.getId(), null, IdentifierType.BSB, "062001", au);
         saveIdentifier(sbi.getId(), null, IdentifierType.IFSC, "SBIN0001234", india);
+
+        saveSwiftDirectoryRow("ICBKCNBJ", "Industrial and Commercial Bank of China", "Beijing", "CN");
+        saveRoutingDirectoryRow("021000021", "JPMorgan Chase Bank, N.A.", "New York", "NY");
 
         icbcId = icbc.getId();
         enterpriseKey = apiKeyService.create("contract-enterprise", false, Plan.ENTERPRISE).rawKey();
@@ -224,7 +237,6 @@ class ApiContractTest {
                 .andExpect(jsonPath("$.data.format.institution_code").value("ICBK"))
                 .andExpect(jsonPath("$.data.format.country_code").value("CN"))
                 .andExpect(jsonPath("$.data.format.location_code").value("BJ"))
-                .andExpect(jsonPath("$.data.bank.id", startsWith("inst_")))
                 .andExpect(jsonPath("$.data.bank.name_en").value("Industrial and Commercial Bank of China"))
                 .andExpect(jsonPath("$.data.bank.country").value("CN"))
                 .andExpect(jsonPath("$.data.city").value("Beijing"))
@@ -251,7 +263,7 @@ class ApiContractTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.routing_number").value("021000021"))
                 .andExpect(jsonPath("$.data.checksum_valid").value(true))
-                .andExpect(jsonPath("$.data.bank.short_name").value("JPMorgan Chase"));
+                .andExpect(jsonPath("$.data.bank.name_en").value("JPMorgan Chase Bank, N.A."));
 
         mockMvc.perform(get("/v1/routing/123456789").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
                 .andExpect(status().isUnprocessableEntity())
@@ -499,5 +511,24 @@ class ApiContractTest {
         identifier.setIdentifierValue(value);
         identifier.setCountryCode(country.getIso2());
         identifierRepository.save(identifier);
+    }
+
+    private void saveSwiftDirectoryRow(String swiftCode, String bankName, String city, String countryCode) {
+        BankSwiftCodeDirectory row = new BankSwiftCodeDirectory();
+        row.setSwiftCode(swiftCode);
+        row.setBankName(bankName);
+        row.setCity(city);
+        row.setCountryCode(countryCode);
+        swiftDirectoryRepository.save(row);
+    }
+
+    private void saveRoutingDirectoryRow(String routingNumber, String bankName, String city, String state) {
+        BankRoutingDirectory row = new BankRoutingDirectory();
+        row.setRoutingNumber(routingNumber);
+        row.setBankName(bankName);
+        row.setCity(city);
+        row.setState(state);
+        row.setChecksumValid(true);
+        routingDirectoryRepository.save(row);
     }
 }

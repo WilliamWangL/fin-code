@@ -4,11 +4,15 @@ import com.fincode.api.config.ResponseCache;
 import com.fincode.api.domain.enums.IdentifierType;
 import com.fincode.api.domain.model.BankBranch;
 import com.fincode.api.domain.model.BankIdentifier;
+import com.fincode.api.domain.model.BankRoutingDirectory;
+import com.fincode.api.domain.model.BankSwiftCodeDirectory;
 import com.fincode.api.domain.model.Country;
 import com.fincode.api.domain.model.DataSource;
 import com.fincode.api.domain.model.FinancialInstitution;
 import com.fincode.api.domain.repository.BankBranchRepository;
 import com.fincode.api.domain.repository.BankIdentifierRepository;
+import com.fincode.api.domain.repository.BankRoutingDirectoryRepository;
+import com.fincode.api.domain.repository.BankSwiftCodeDirectoryRepository;
 import com.fincode.api.domain.repository.CountryRepository;
 import com.fincode.api.domain.repository.DataSourceRepository;
 import com.fincode.api.domain.repository.FinancialInstitutionRepository;
@@ -48,6 +52,8 @@ public class IdentifierQueryService {
     private final CountryRepository countryRepository;
     private final BankBranchRepository branchRepository;
     private final DataSourceRepository dataSourceRepository;
+    private final BankSwiftCodeDirectoryRepository swiftDirectoryRepository;
+    private final BankRoutingDirectoryRepository routingDirectoryRepository;
     private final ResponseCache responseCache;
 
     public IdentifierQueryService(BankIdentifierRepository identifierRepository,
@@ -55,12 +61,16 @@ public class IdentifierQueryService {
                                   CountryRepository countryRepository,
                                   BankBranchRepository branchRepository,
                                   DataSourceRepository dataSourceRepository,
+                                  BankSwiftCodeDirectoryRepository swiftDirectoryRepository,
+                                  BankRoutingDirectoryRepository routingDirectoryRepository,
                                   ResponseCache responseCache) {
         this.identifierRepository = identifierRepository;
         this.institutionRepository = institutionRepository;
         this.countryRepository = countryRepository;
         this.branchRepository = branchRepository;
         this.dataSourceRepository = dataSourceRepository;
+        this.swiftDirectoryRepository = swiftDirectoryRepository;
+        this.routingDirectoryRepository = routingDirectoryRepository;
         this.responseCache = responseCache;
     }
 
@@ -70,7 +80,8 @@ public class IdentifierQueryService {
             throw new ApiException(ErrorCode.INVALID_SWIFT);
         }
         return cached(IdentifierType.SWIFT, value, SwiftData.class,
-                () -> IdentifierMapper.toSwiftData(resolve(IdentifierType.SWIFT, value)));
+                () -> IdentifierMapper.toSwiftData(swiftDirectoryRepository.findBySwiftCode(value)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND))));
     }
 
     public RoutingData findRouting(String number) {
@@ -82,7 +93,8 @@ public class IdentifierQueryService {
             throw new ApiException(ErrorCode.INVALID_ROUTING, "The routing number failed checksum validation");
         }
         return cached(IdentifierType.ABA_ROUTING, value, RoutingData.class,
-                () -> IdentifierMapper.toRoutingData(resolve(IdentifierType.ABA_ROUTING, value)));
+                () -> IdentifierMapper.toRoutingData(routingDirectoryRepository.findByRoutingNumber(value)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND))));
     }
 
     public SortCodeData findSortCode(String code) {
