@@ -96,7 +96,13 @@ export async function IdentifierDirectoryPage({
           {t("count", { count: rows.length })}
         </p>
         <div className="mt-6">
-          <IdentifierDirectory rows={rows} countries={countries} />
+          <IdentifierDirectory
+            rows={rows}
+            countries={countries}
+            apiLookup={
+              config.type === "SWIFT" ? "swift" : config.type === "ABA_ROUTING" ? "routing" : undefined
+            }
+          />
         </div>
       </section>
 

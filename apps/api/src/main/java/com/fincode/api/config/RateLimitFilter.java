@@ -43,7 +43,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         Object attribute = request.getAttribute(ApiKeyAuthFilter.ATTRIBUTE);
         if (!(attribute instanceof ApiKey apiKey)) {
-            chain.doFilter(request, response);
+            limitAnonymousIdentifierLookup(request, response, chain);
             return;
         }
 
@@ -62,5 +62,39 @@ public class RateLimitFilter extends OncePerRequestFilter {
         response.setHeader(HEADER_RATE_LIMIT, String.valueOf(apiKey.getPlan().requestsPerMinute()));
         response.setHeader(HEADER_RATE_REMAINING, String.valueOf(Math.max(result.remaining(), 0)));
         chain.doFilter(request, response);
+    }
+
+    /**
+     * Anonymous calls reach this filter only through the public identifier
+     * lookups ({@link ApiScopes#isPublicIdentifierPath}); ApiKeyAuthFilter
+     * rejects every other keyless request earlier. They get a small shared
+     * per-IP bucket instead of a plan quota.
+     */
+    private void limitAnonymousIdentifierLookup(HttpServletRequest request, HttpServletResponse response,
+                                                FilterChain chain) throws ServletException, IOException {
+        if (!ApiScopes.isPublicIdentifierPath(request.getRequestURI())) {
+            chain.doFilter(request, response);
+            return;
+        }
+        RateLimitService.Result result = rateLimitService.acquireAnonymous(clientIp(request));
+        if (!result.allowed()) {
+            long retryAfterSeconds = Math.max(1, (result.retryAfterMs() + 999) / 1000);
+            response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfterSeconds));
+            errorResponseWriter.write(response, ErrorCode.RATE_LIMITED);
+            return;
+        }
+        response.setHeader(HEADER_RATE_LIMIT, String.valueOf(RateLimitService.ANONYMOUS_CAPACITY_PER_MINUTE));
+        response.setHeader(HEADER_RATE_REMAINING, String.valueOf(Math.max(result.remaining(), 0)));
+        chain.doFilter(request, response);
+    }
+
+    /** The API container sits behind nginx, so prefer the forwarded client IP. */
+    private static String clientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            int comma = forwarded.indexOf(',');
+            return (comma >= 0 ? forwarded.substring(0, comma) : forwarded).trim();
+        }
+        return request.getRemoteAddr();
     }
 }

@@ -19,6 +19,11 @@ public class RateLimitService {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitService.class);
 
+    /** Anonymous website lookups share the FREE plan's per-minute burst. */
+    public static final int ANONYMOUS_CAPACITY_PER_MINUTE = 10;
+
+    private static final String ANONYMOUS_BUCKET_PREFIX = "ratelimit:ip:";
+
     private static final String LUA = """
             local key = KEYS[1]
             local capacity = tonumber(ARGV[1])
@@ -63,11 +68,23 @@ public class RateLimitService {
         if (capacity == Integer.MAX_VALUE) {
             return Result.unlimited();
         }
+        return acquire("ratelimit:" + apiKey.getId(), capacity);
+    }
+
+    /**
+     * Anonymous directory lookups from the public website search: a shared
+     * per-minute burst keyed by client IP, stricter than any paid plan.
+     */
+    public Result acquireAnonymous(String clientIp) {
+        return acquire(ANONYMOUS_BUCKET_PREFIX + clientIp, ANONYMOUS_CAPACITY_PER_MINUTE);
+    }
+
+    private Result acquire(String bucketKey, int capacityPerMinute) {
         long now = System.currentTimeMillis();
-        double refillPerMs = capacity / 60_000.0;
+        double refillPerMs = capacityPerMinute / 60_000.0;
         try {
-            List<?> raw = redis.execute(ACQUIRE_SCRIPT, List.of("ratelimit:" + apiKey.getId()),
-                    String.valueOf(capacity), String.valueOf(now), String.valueOf(refillPerMs), "1");
+            List<?> raw = redis.execute(ACQUIRE_SCRIPT, List.of(bucketKey),
+                    String.valueOf(capacityPerMinute), String.valueOf(now), String.valueOf(refillPerMs), "1");
             if (raw == null || raw.size() < 3) {
                 return Result.unlimited();
             }

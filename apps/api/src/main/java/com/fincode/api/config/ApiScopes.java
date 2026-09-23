@@ -17,6 +17,13 @@ public final class ApiScopes {
      */
     private static final String[] PUBLIC_PREFIXES = {"/v1/webhooks"};
 
+    /**
+     * Directory lookups the public website search may call without an API key
+     * (rate-limited per client IP downstream). Authenticated callers keep full
+     * access with their plan limits; every other /v1 path still requires a key.
+     */
+    private static final String[] PUBLIC_IDENTIFIER_PREFIXES = {"/v1/swift", "/v1/routing"};
+
     private ApiScopes() {
     }
 
@@ -26,6 +33,10 @@ public final class ApiScopes {
 
     public static boolean isPublicPath(String uri) {
         return matches(uri, PUBLIC_PREFIXES);
+    }
+
+    public static boolean isPublicIdentifierPath(String uri) {
+        return matches(uri, PUBLIC_IDENTIFIER_PREFIXES);
     }
 
     private static boolean matches(String uri, String[] prefixes) {

@@ -258,6 +258,27 @@ class ApiContractTest {
     }
 
     @Test
+    void anonymousDirectoryLookupsArePublicAndIpRateLimited() throws Exception {
+        // The website search calls these two endpoints without an API key.
+        mockMvc.perform(get("/v1/swift/ICBKCNBJ"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.swift_code").value("ICBKCNBJ"));
+        mockMvc.perform(get("/v1/routing/021000021"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.routing_number").value("021000021"));
+
+        // The anonymous bucket is 10 lookups per minute per IP; this test
+        // exhausts it, so it must stay the only anonymous caller in the suite.
+        for (int i = 0; i < 8; i++) {
+            mockMvc.perform(get("/v1/swift/ICBKCNBJ"))
+                    .andExpect(status().isOk());
+        }
+        mockMvc.perform(get("/v1/swift/ICBKCNBJ"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error.code").value("RATE_LIMITED"));
+    }
+
+    @Test
     void routingLookupValidatesChecksum() throws Exception {
         mockMvc.perform(get("/v1/routing/021000021").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
                 .andExpect(status().isOk())
