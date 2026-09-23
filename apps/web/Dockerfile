@@ -4,7 +4,10 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+# npm 10.9.x on Node 22 intermittently aborts with "Exit handler never called!"
+# (npm/cli#7639): retry once from a clean cache to keep image builds reliable.
+RUN --mount=type=cache,target=/root/.npm \
+    sh -c 'npm ci --no-audit --no-fund || { npm cache clean --force; npm ci --no-audit --no-fund; }'
 
 # ---------- Build ----------
 FROM node:22-alpine AS build
