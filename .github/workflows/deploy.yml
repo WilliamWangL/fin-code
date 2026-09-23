@@ -3,6 +3,9 @@ name: Deploy
 # Deploy (FIN-032): build the api and web images, push them to GHCR, then
 # ssh into the server and roll the production stack in /opt/fincode.
 #
+# Triggered automatically on every push to main; can also be started by hand
+# from the Actions tab (workflow_dispatch) to override the baked-in values.
+#
 # Required repository secrets (Settings -> Secrets and variables -> Actions):
 #   SSH_HOST          server public ip
 #   SSH_USER          ssh user (root)
@@ -16,6 +19,8 @@ name: Deploy
 #   PAYPAL_PLAN_DEVELOPER / PAYPAL_PLAN_STARTUP / PAYPAL_PLAN_BUSINESS
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       site_url:
@@ -31,6 +36,7 @@ on:
         required: false
         default: ""
 
+# Serialize deploys instead of cancelling mid-flight; each run is idempotent.
 concurrency:
   group: deploy-production
   cancel-in-progress: false
@@ -39,6 +45,11 @@ env:
   REGISTRY: ghcr.io
   # GHCR requires lowercase image paths; the repo owner contains uppercase.
   REPO_LC: williamwangl/fin-code
+  # Production values baked into the web build and the API CORS config.
+  # On push the literals below are used; workflow_dispatch inputs override.
+  SITE_URL: ${{ inputs.site_url || 'https://fincode.ecommica.com' }}
+  API_BASE_URL: ${{ inputs.api_base_url || 'https://api.ecommica.com/v1' }}
+  PUBLIC_PAYPAL_CLIENT_ID: ${{ inputs.paypal_client_id || '' }}
 
 jobs:
   build-api:
@@ -88,9 +99,9 @@ jobs:
           context: apps/web
           push: true
           build-args: |
-            NEXT_PUBLIC_SITE_URL=${{ inputs.site_url }}
-            NEXT_PUBLIC_API_BASE_URL=${{ inputs.api_base_url }}
-            NEXT_PUBLIC_PAYPAL_CLIENT_ID=${{ inputs.paypal_client_id }}
+            NEXT_PUBLIC_SITE_URL=${{ env.SITE_URL }}
+            NEXT_PUBLIC_API_BASE_URL=${{ env.API_BASE_URL }}
+            NEXT_PUBLIC_PAYPAL_CLIENT_ID=${{ env.PUBLIC_PAYPAL_CLIENT_ID }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.REPO_LC }}/fincode-web:latest
             ${{ env.REGISTRY }}/${{ env.REPO_LC }}/fincode-web:${{ github.sha }}
@@ -134,9 +145,9 @@ jobs:
             cat > .env <<'ENVEOF'
             MYSQL_PASSWORD=${{ secrets.PROD_MYSQL_PASSWORD }}
             JWT_SECRET=${{ secrets.PROD_JWT_SECRET }}
-            CORS_ALLOWED_ORIGINS=${{ inputs.site_url }}
+            CORS_ALLOWED_ORIGINS=${{ env.SITE_URL }}
             PAYPAL_ENV=sandbox
-            PAYPAL_CLIENT_ID=${{ inputs.paypal_client_id }}
+            PAYPAL_CLIENT_ID=${{ env.PUBLIC_PAYPAL_CLIENT_ID }}
             PAYPAL_CLIENT_SECRET=${{ secrets.PAYPAL_CLIENT_SECRET }}
             PAYPAL_WEBHOOK_ID=${{ secrets.PAYPAL_WEBHOOK_ID }}
             PAYPAL_PLAN_DEVELOPER=${{ secrets.PAYPAL_PLAN_DEVELOPER }}
