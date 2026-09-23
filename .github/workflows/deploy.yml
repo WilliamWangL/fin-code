@@ -21,11 +21,11 @@ on:
       site_url:
         description: "Public site URL baked into the web build (NEXT_PUBLIC_SITE_URL)"
         required: true
-        default: "http://43.153.80.15:3003"
+        default: "https://fincode.ecommica.com"
       api_base_url:
         description: "Public API base URL browsers will call (NEXT_PUBLIC_API_BASE_URL)"
         required: true
-        default: "http://43.153.80.15:8081/v1"
+        default: "https://api.ecommica.com/v1"
       paypal_client_id:
         description: "Public PayPal client id (leave empty to keep billing disabled)"
         required: false
