@@ -36,10 +36,16 @@ declare global {
   }
 }
 
-/** One cached loader promise per CDN host + client id (sandbox vs live). */
+/** One cached loader promise per CDN host, client id and locale. */
 const sdkPromises = new Map<string, Promise<PayPalSdk>>();
 
-export function loadPayPalSdk(clientId: string, sandbox = false): Promise<PayPalSdk> {
+/**
+ * PayPal locale codes for the site locales. Without the locale parameter the
+ * SDK follows the browser language instead (Chinese buttons on the /en site).
+ */
+const SDK_LOCALES: Record<string, string> = { en: "en_US", zh: "zh_CN" };
+
+export function loadPayPalSdk(clientId: string, sandbox = false, locale = "en"): Promise<PayPalSdk> {
   if (typeof window === "undefined") {
     return Promise.reject(new Error("PAYPAL_SDK_SERVER"));
   }
@@ -49,7 +55,8 @@ export function loadPayPalSdk(clientId: string, sandbox = false): Promise<PayPal
   // The script host decides which environment the SDK talks to; a sandbox
   // client id on the live host cannot approve its subscriptions.
   const host = sandbox ? "https://www.sandbox.paypal.com" : "https://www.paypal.com";
-  const cacheKey = `${host}|${clientId}`;
+  const resolvedLocale = SDK_LOCALES[locale] ?? "en_US";
+  const cacheKey = `${host}|${clientId}|${resolvedLocale}`;
   let sdkPromise = sdkPromises.get(cacheKey);
   if (!sdkPromise) {
     sdkPromise = new Promise<PayPalSdk>((resolve, reject) => {
@@ -59,6 +66,7 @@ export function loadPayPalSdk(clientId: string, sandbox = false): Promise<PayPal
         intent: "subscription",
         vault: "true",
         components: "buttons",
+        locale: resolvedLocale,
       });
       const script = document.createElement("script");
       script.src = `${host}/sdk/js?${params.toString()}`;

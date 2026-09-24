@@ -86,6 +86,7 @@ function PayPalSubscribeButton({
   onFailure: (error: unknown) => void;
 }) {
   const t = useTranslations("portal");
+  const locale = useLocale();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const buttonsRef = useRef<PayPalButtonsInstance | null>(null);
   const [sdkError, setSdkError] = useState(false);
@@ -97,7 +98,7 @@ function PayPalSubscribeButton({
       setSdkError(true);
       return;
     }
-    loadPayPalSdk(siteConfig.paypalClientId, sandbox)
+    loadPayPalSdk(siteConfig.paypalClientId, sandbox, locale)
       .then((paypal) => {
         if (!active || !containerRef.current) {
           return;
@@ -138,7 +139,7 @@ function PayPalSubscribeButton({
       buttonsRef.current?.close?.();
       buttonsRef.current = null;
     };
-  }, [plan, sandbox, onConfirmed, onFailure]);
+  }, [plan, sandbox, locale, onConfirmed, onFailure]);
 
   if (sdkError) {
     return (
