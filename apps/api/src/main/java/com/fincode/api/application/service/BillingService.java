@@ -35,7 +35,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -130,7 +129,12 @@ public class BillingService {
         Plan plan = parsePurchasablePlan(planName);
         requireConfigured();
         String planId = requirePlanId(plan);
-        if (entitledSubscription(organizationId).isPresent()) {
+        // Exactly one live subscription at a time; a cancelled one keeps its
+        // grace access but must not block a new checkout (re-subscribe).
+        boolean liveSubscription = subscriptionRepository.findByOrganizationIdOrderByIdDesc(organizationId)
+                .stream()
+                .anyMatch(BillingService::isLive);
+        if (liveSubscription) {
             throw new ApiException(ErrorCode.SUBSCRIPTION_ALREADY_ACTIVE);
         }
         String customId = String.valueOf(organizationId);
@@ -161,6 +165,10 @@ public class BillingService {
         requireConfigured();
         String planId = requirePlanId(plan);
         PayPalSubscription record = requireOwnedSubscription(organizationId, subscriptionId);
+        if (PayPalSubscription.STATUS_CANCELLED.equals(record.getStatus())
+                || PayPalSubscription.STATUS_EXPIRED.equals(record.getStatus())) {
+            throw new ApiException(ErrorCode.SUBSCRIPTION_NOT_CHANGEABLE);
+        }
         if (record.getPlan() == plan) {
             throw new ApiException(ErrorCode.INVALID_REQUEST, "The subscription is already on this plan");
         }
@@ -428,25 +436,23 @@ public class BillingService {
         return effective;
     }
 
-    private Optional<PayPalSubscription> entitledSubscription(Long organizationId) {
-        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-        return subscriptionRepository.findByOrganizationIdOrderByIdDesc(organizationId).stream()
-                .filter(subscription -> isEntitled(subscription, now))
-                .findFirst();
+    /** ACTIVE/APPROVED/SUSPENDED: live at the provider and still changeable. */
+    private static boolean isLive(PayPalSubscription subscription) {
+        String status = subscription.getStatus();
+        return PayPalSubscription.STATUS_ACTIVE.equals(status)
+                || PayPalSubscription.STATUS_APPROVED.equals(status)
+                || PayPalSubscription.STATUS_SUSPENDED.equals(status);
     }
 
     /**
-     * ACTIVE/APPROVED/SUSPENDED subscriptions entitle; a CANCELLED one keeps
-     * the entitlement until the already-paid period ends.
+     * Live subscriptions entitle; a CANCELLED one keeps the entitlement until
+     * the already-paid period ends.
      */
     private static boolean isEntitled(PayPalSubscription subscription, ZonedDateTime now) {
-        String status = subscription.getStatus();
-        if (PayPalSubscription.STATUS_ACTIVE.equals(status)
-                || PayPalSubscription.STATUS_APPROVED.equals(status)
-                || PayPalSubscription.STATUS_SUSPENDED.equals(status)) {
+        if (isLive(subscription)) {
             return true;
         }
-        return PayPalSubscription.STATUS_CANCELLED.equals(status)
+        return PayPalSubscription.STATUS_CANCELLED.equals(subscription.getStatus())
                 && subscription.getNextBillingTime() != null
                 && subscription.getNextBillingTime().isAfter(now.toLocalDateTime());
     }

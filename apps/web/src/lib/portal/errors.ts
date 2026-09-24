@@ -26,6 +26,8 @@ export function portalErrorMessage(
         return t("planUnavailable");
       case "SUBSCRIPTION_ALREADY_ACTIVE":
         return t("alreadySubscribed");
+      case "SUBSCRIPTION_NOT_CHANGEABLE":
+        return t("subscriptionNotChangeable");
       case "PAYMENT_PROVIDER_ERROR":
         return t("providerError");
       default:

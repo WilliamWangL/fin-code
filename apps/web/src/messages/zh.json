@@ -564,6 +564,7 @@
     "billingUnavailable": "计费服务暂不可用，请稍后重试。",
     "planUnavailable": "该套餐不支持在线购买，如需定制请联系我们。",
     "alreadySubscribed": "该组织已有订阅，请直接更换套餐。",
+    "subscriptionNotChangeable": "该订阅已取消，无法再变更套餐——请重新订阅以创建新的订阅。",
     "providerError": "支付服务商返回了错误，请稍后重试。",
     "dashboard": "控制台",
     "signedInAs": "当前登录",

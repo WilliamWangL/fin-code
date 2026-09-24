@@ -564,6 +564,7 @@
     "billingUnavailable": "Billing is not available right now. Please try again later.",
     "planUnavailable": "This plan cannot be purchased online. Contact us for a custom plan.",
     "alreadySubscribed": "This organization already has a subscription — change your plan instead.",
+    "subscriptionNotChangeable": "This subscription was cancelled and can no longer be changed — subscribe to a plan to start a new one.",
     "providerError": "The payment provider reported a problem. Please try again.",
     "dashboard": "Dashboard",
     "signedInAs": "Signed in as",

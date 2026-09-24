@@ -36,6 +36,7 @@ public enum ErrorCode {
     PAYMENT_PROVIDER_ERROR(HttpStatus.BAD_GATEWAY, "The payment provider request failed"),
     PLAN_NOT_PURCHASABLE(HttpStatus.BAD_REQUEST, "The plan is not available for online purchase"),
     SUBSCRIPTION_ALREADY_ACTIVE(HttpStatus.CONFLICT, "The organization already has an active subscription"),
+    SUBSCRIPTION_NOT_CHANGEABLE(HttpStatus.CONFLICT, "The subscription was cancelled and can no longer be changed"),
     INVALID_WEBHOOK_SIGNATURE(HttpStatus.UNAUTHORIZED, "The webhook signature could not be verified"),
 
     INTERNAL(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected server error - retry with backoff");

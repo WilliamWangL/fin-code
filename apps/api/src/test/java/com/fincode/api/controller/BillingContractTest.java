@@ -182,6 +182,52 @@ class BillingContractTest {
                 .andExpect(jsonPath("$.data.subscription.cancelled_at").isNotEmpty());
     }
 
+    @Test
+    void reviseRejectsCancelledSubscription() throws Exception {
+        Session session = register();
+        activateSubscription(session, "I-TEST0006");
+
+        mockMvc.perform(post("/v1/billing/subscriptions/I-TEST0006/cancel")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"testing\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/v1/billing/subscriptions/I-TEST0006/revise")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"plan\":\"STARTUP\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("SUBSCRIPTION_NOT_CHANGEABLE"));
+    }
+
+    @Test
+    void checkoutAllowedAfterCancellation() throws Exception {
+        Session session = register();
+        activateSubscription(session, "I-TEST0007");
+
+        mockMvc.perform(post("/v1/billing/subscriptions/I-TEST0007/cancel")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"re-subscribe\"}"))
+                .andExpect(status().isOk());
+
+        // The cancelled subscription keeps grace access but must not block a
+        // fresh checkout: buyers can re-subscribe before the period ends.
+        when(payPalClient.createSubscription(eq("plan-startup-1"), eq(String.valueOf(session.organizationId())),
+                anyString(), anyString())).thenReturn("I-TEST0008");
+        when(payPalClient.getSubscription("I-TEST0008")).thenReturn(new PayPalClient.SubscriptionInfo(
+                "I-TEST0008", "plan-startup-1", String.valueOf(session.organizationId()),
+                "APPROVAL_PENDING", null, null, null));
+        mockMvc.perform(post("/v1/billing/checkout")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"plan\":\"STARTUP\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.subscription_id").value("I-TEST0008"))
+                .andExpect(jsonPath("$.data.status").value("APPROVAL_PENDING"));
+    }
+
     // ── Webhooks ────────────────────────────────────────────────────────────
 
     @Test

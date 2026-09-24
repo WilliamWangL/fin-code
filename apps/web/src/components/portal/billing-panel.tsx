@@ -22,7 +22,6 @@ import type {
   BillingInvoiceData,
   BillingPlanData,
   BillingSummaryData,
-  BillingSubscriptionData,
 } from "@/lib/portal/types";
 import { siteConfig } from "@/lib/site";
 
@@ -56,21 +55,6 @@ function statusMessageKey(status: string): string | null {
     default:
       return null;
   }
-}
-
-/** Mirrors BillingService.isEntitled: cancelled keeps access until period end. */
-function isEntitled(subscription: BillingSubscriptionData | null): boolean {
-  if (!subscription) {
-    return false;
-  }
-  if (ENTITLED_STATUSES.has(subscription.status)) {
-    return true;
-  }
-  return (
-    subscription.status === "CANCELLED" &&
-    !!subscription.next_billing_time &&
-    new Date(subscription.next_billing_time).getTime() > Date.now()
-  );
 }
 
 /** PayPal Buttons wrapper: created once per selected plan, torn down on switch. */
@@ -259,7 +243,9 @@ export function BillingPanel() {
   }, []);
 
   const subscription = summary?.subscription ?? null;
-  const entitled = isEntitled(subscription);
+  // A cancelled or expired subscription can no longer be changed at PayPal;
+  // every paid plan then goes through a fresh checkout instead of a revise.
+  const canChangePlan = subscription !== null && ENTITLED_STATUSES.has(subscription.status);
   const canManage = role === "OWNER";
   const providerConfigured = summary?.provider.configured === true;
   const purchasablePlans = summary?.plans.filter((item) => item.checkout_available) ?? [];
@@ -439,8 +425,20 @@ export function BillingPanel() {
                       <p className="mt-1 text-xs text-muted-foreground">{limitsText(item)}</p>
                       <div className="mt-3">
                         {isCurrent ? (
-                          <Badge variant="outline">{t("billingCurrentBadge")}</Badge>
-                        ) : entitled && canManage ? (
+                          subscription && !canChangePlan && canManage ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setRequestedPlan(item.plan)}
+                              disabled={busy}
+                            >
+                              {t("billingSubscribeTo", { plan: name })}
+                            </Button>
+                          ) : (
+                            <Badge variant="outline">{t("billingCurrentBadge")}</Badge>
+                          )
+                        ) : canChangePlan && canManage ? (
                           <Button
                             type="button"
                             size="sm"
@@ -467,7 +465,7 @@ export function BillingPanel() {
                 })}
               </ul>
 
-              {!entitled && canManage && (
+              {!canChangePlan && canManage && (
                 <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-4">
                   {selectedPlan ? (
                     <>
