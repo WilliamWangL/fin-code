@@ -628,6 +628,7 @@ export function BillingPanel() {
                     <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                       <th className="py-2 pr-4 font-medium">{t("billingInvoiceDate")}</th>
                       <th className="py-2 pr-4 font-medium">{t("billingInvoiceAmount")}</th>
+                      <th className="py-2 pr-4 font-medium">{t("billingInvoiceTransaction")}</th>
                       <th className="py-2 font-medium">{t("billingInvoiceStatus")}</th>
                     </tr>
                   </thead>
@@ -638,6 +639,7 @@ export function BillingPanel() {
                         <td className="py-2 pr-4">
                           {line.amount ? `${line.amount} ${line.currency ?? ""}`.trim() : "—"}
                         </td>
+                        <td className="py-2 pr-4 font-mono text-xs">{line.id || "—"}</td>
                         <td className="py-2">
                           {line.status === "COMPLETED" ? t("billingInvoicePaid") : line.status}
                         </td>

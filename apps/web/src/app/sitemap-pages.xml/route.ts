@@ -29,11 +29,15 @@ const STATIC_PATHS = [
 export function GET() {
   const entries = [
     ...STATIC_PATHS,
-    ...docPages.map((page) => ({
-      path: `/docs/${page.slug}`,
-      priority: 0.6,
-      changefreq: "monthly" as const,
-    })),
+    // API documentation (api-reference and any future api-* page) stays out
+    // of the sitemap.
+    ...docPages
+      .filter((page) => !page.slug.startsWith("api"))
+      .map((page) => ({
+        path: `/docs/${page.slug}`,
+        priority: 0.6,
+        changefreq: "monthly" as const,
+      })),
   ];
   return xmlResponse(buildUrlset(entries));
 }

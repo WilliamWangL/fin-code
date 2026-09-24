@@ -676,6 +676,7 @@
     "billingInvoicesEmpty": "No invoices in the last 93 days.",
     "billingInvoiceDate": "Date",
     "billingInvoiceAmount": "Amount",
+    "billingInvoiceTransaction": "Transaction ID",
     "billingInvoiceStatus": "Status",
     "billingInvoicePaid": "Paid",
     "billingStatusApprovalPending": "Approval pending",

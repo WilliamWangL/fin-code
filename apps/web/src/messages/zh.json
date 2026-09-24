@@ -676,6 +676,7 @@
     "billingInvoicesEmpty": "最近 93 天暂无发票。",
     "billingInvoiceDate": "日期",
     "billingInvoiceAmount": "金额",
+    "billingInvoiceTransaction": "交易号",
     "billingInvoiceStatus": "状态",
     "billingInvoicePaid": "已支付",
     "billingStatusApprovalPending": "待批准",
