@@ -76,10 +76,12 @@ function isEntitled(subscription: BillingSubscriptionData | null): boolean {
 /** PayPal Buttons wrapper: created once per selected plan, torn down on switch. */
 function PayPalSubscribeButton({
   plan,
+  sandbox,
   onConfirmed,
   onFailure,
 }: {
   plan: string;
+  sandbox: boolean;
   onConfirmed: () => void;
   onFailure: (error: unknown) => void;
 }) {
@@ -95,7 +97,7 @@ function PayPalSubscribeButton({
       setSdkError(true);
       return;
     }
-    loadPayPalSdk(siteConfig.paypalClientId)
+    loadPayPalSdk(siteConfig.paypalClientId, sandbox)
       .then((paypal) => {
         if (!active || !containerRef.current) {
           return;
@@ -136,7 +138,7 @@ function PayPalSubscribeButton({
       buttonsRef.current?.close?.();
       buttonsRef.current = null;
     };
-  }, [plan, onConfirmed, onFailure]);
+  }, [plan, sandbox, onConfirmed, onFailure]);
 
   if (sdkError) {
     return (
@@ -483,6 +485,7 @@ export function BillingPanel() {
                       </div>
                       <PayPalSubscribeButton
                         plan={selectedPlan}
+                        sandbox={summary?.provider.environment === "sandbox"}
                         onConfirmed={onConfirmed}
                         onFailure={onProviderFailure}
                       />
