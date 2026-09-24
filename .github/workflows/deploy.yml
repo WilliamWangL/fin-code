@@ -47,9 +47,11 @@ env:
   REPO_LC: williamwangl/fin-code
   # Production values baked into the web build and the API CORS config.
   # On push the literals below are used; workflow_dispatch inputs override.
+  # The PayPal client id falls back to the PAYPAL_CLIENT_ID secret so push
+  # deploys keep billing enabled without a manual dispatch input.
   SITE_URL: ${{ inputs.site_url || 'https://fincode.ecommica.com' }}
   API_BASE_URL: ${{ inputs.api_base_url || 'https://api.ecommica.com/v1' }}
-  PUBLIC_PAYPAL_CLIENT_ID: ${{ inputs.paypal_client_id || '' }}
+  PUBLIC_PAYPAL_CLIENT_ID: ${{ inputs.paypal_client_id || secrets.PAYPAL_CLIENT_ID || '' }}
 
 jobs:
   build-api:
@@ -153,6 +155,8 @@ jobs:
             PAYPAL_PLAN_DEVELOPER=${{ secrets.PAYPAL_PLAN_DEVELOPER }}
             PAYPAL_PLAN_STARTUP=${{ secrets.PAYPAL_PLAN_STARTUP }}
             PAYPAL_PLAN_BUSINESS=${{ secrets.PAYPAL_PLAN_BUSINESS }}
+            PAYPAL_RETURN_URL=${{ env.SITE_URL }}/dashboard/billing
+            PAYPAL_CANCEL_URL=${{ env.SITE_URL }}/dashboard/billing
             ENVEOF
             chmod 600 .env
 
