@@ -30,7 +30,8 @@ import { siteConfig } from "@/lib/site";
  * subscription and lets the owner subscribe through PayPal Checkout, switch
  * plans via the revise/approve flow, stop renewal and inspect recent invoices.
  * No payment secrets reach the browser: the button only calls the API for a
- * subscription id and PayPal redirects back after approval.
+ * subscription id, and the panel reconciles the approval from the API because
+ * PayPal's popup does not always redirect back or close itself.
  */
 
 const ENTITLED_STATUSES = new Set(["ACTIVE", "APPROVED", "SUSPENDED"]);
@@ -63,11 +64,13 @@ function PayPalSubscribeButton({
   sandbox,
   onConfirmed,
   onFailure,
+  onPopupClosed,
 }: {
   plan: string;
   sandbox: boolean;
   onConfirmed: () => void;
   onFailure: (error: unknown) => void;
+  onPopupClosed: (plan: string) => void;
 }) {
   const t = useTranslations("portal");
   const locale = useLocale();
@@ -106,7 +109,10 @@ function PayPalSubscribeButton({
             }
           },
           onCancel: () => {
-            /* Buyer closed the PayPal window: no state change needed. */
+            /* Closing the window may follow a successful approval - the SDK
+               never fires onApprove in that case - so reconcile against the
+               API instead of assuming the buyer changed their mind. */
+            onPopupClosed(plan);
           },
           onError: (caught) => onFailure(caught),
         });
@@ -123,7 +129,7 @@ function PayPalSubscribeButton({
       buttonsRef.current?.close?.();
       buttonsRef.current = null;
     };
-  }, [plan, sandbox, locale, onConfirmed, onFailure]);
+  }, [plan, sandbox, locale, onConfirmed, onFailure, onPopupClosed]);
 
   if (sdkError) {
     return (
@@ -212,6 +218,41 @@ export function BillingPanel() {
     };
   }, [subscriptionId]);
 
+  // PayPal returns approved buyers to this page with the subscription id in
+  // the query string (popup redirects and plan-change approvals). Confirm it
+  // right away and close the window when this instance is the popup itself.
+  useEffect(() => {
+    const returnedId = new URLSearchParams(window.location.search).get("subscription_id");
+    if (!returnedId) {
+      return;
+    }
+    const url = new URL(window.location.href);
+    for (const key of ["subscription_id", "ba_token", "token", "PayerID"]) {
+      url.searchParams.delete(key);
+    }
+    window.history.replaceState(null, "", url.toString());
+    const isPopup = window.opener != null;
+    void (async () => {
+      try {
+        await confirmSubscription(returnedId);
+      } catch {
+        /* the webhook reconciles the state server-side as well */
+      }
+      try {
+        const data = await fetchBillingSummary();
+        setSummary(data);
+        if (data.subscription && ENTITLED_STATUSES.has(data.subscription.status)) {
+          setNotice(t("billingConfirmed"));
+        }
+      } catch {
+        /* keep the current view */
+      }
+      if (isPopup) {
+        window.close();
+      }
+    })();
+  }, [t]);
+
   const refresh = useCallback(async () => {
     setBusy(true);
     setActionError(null);
@@ -242,6 +283,45 @@ export function BillingPanel() {
     setActionError(caught);
   }, []);
 
+  /**
+   * PayPal's popup often stays open after approval - onApprove never fires and
+   * return_url is ignored - so the plan is reconciled from the API instead: the
+   * ACTIVATED webhook has already flipped the subscription by then. Returns
+   * true when the checked plan has become the latest entitled subscription.
+   */
+  const reconcilePlan = useCallback(
+    async (plan: string): Promise<boolean> => {
+      try {
+        const data = await fetchBillingSummary();
+        setSummary(data);
+        const current = data.subscription;
+        if (!current || current.plan !== plan || !ENTITLED_STATUSES.has(current.status)) {
+          return false;
+        }
+        setActionError(null);
+        setNotice(t("billingConfirmed"));
+        setRequestedPlan(null);
+        try {
+          setInvoices(await fetchInvoices(current.subscription_id));
+          setInvoicesError(null);
+        } catch {
+          /* the invoice card keeps its previous state */
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [t],
+  );
+
+  const onPopupClosed = useCallback(
+    (plan: string) => {
+      void reconcilePlan(plan);
+    },
+    [reconcilePlan],
+  );
+
   const subscription = summary?.subscription ?? null;
   // A cancelled or expired subscription can no longer be changed at PayPal;
   // every paid plan then goes through a fresh checkout instead of a revise.
@@ -254,6 +334,31 @@ export function BillingPanel() {
       ? requestedPlan
       : null;
   const planData = summary?.plans.find((item) => item.plan === summary.plan) ?? null;
+
+  // While a checkout is selected, poll for the approved subscription (and
+  // re-check whenever the window regains focus) so the page updates even when
+  // the PayPal popup never reports back. The cap stops polling after roughly
+  // fifteen minutes; a successful reconcile clears the selection.
+  useEffect(() => {
+    if (!selectedPlan) {
+      return;
+    }
+    let attempts = 0;
+    const timer = setInterval(() => {
+      if (attempts >= 180) {
+        clearInterval(timer);
+        return;
+      }
+      attempts += 1;
+      void reconcilePlan(selectedPlan);
+    }, 5000);
+    const onFocus = () => void reconcilePlan(selectedPlan);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [selectedPlan, reconcilePlan]);
 
   const numberFormat = new Intl.NumberFormat(locale);
   const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: "medium" });
@@ -487,6 +592,7 @@ export function BillingPanel() {
                         sandbox={summary?.provider.environment === "sandbox"}
                         onConfirmed={onConfirmed}
                         onFailure={onProviderFailure}
+                        onPopupClosed={onPopupClosed}
                       />
                       <p className="text-xs text-muted-foreground">{t("billingCheckoutNote")}</p>
                     </>

@@ -4,10 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fincode.api.config.PayPalProperties;
 import com.fincode.api.exception.ApiException;
 import com.fincode.api.exception.ErrorCode;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -130,11 +129,15 @@ public class PayPalRestClient implements PayPalClient {
 
     @Override
     public List<TransactionInfo> listTransactions(String subscriptionId, Instant start, Instant end) {
-        String uri = "/v1/billing/subscriptions/" + subscriptionId + "/transactions"
-                + "?start_time=" + encode(start.toString())
-                + "&end_time=" + encode(end.toString());
+        // Query values must go through the URI builder: a pre-encoded template
+        // string gets encoded a second time (%3A arrives as %253A) and PayPal
+        // rejects the request with INVALID_PARAMETER_SYNTAX.
         JsonNode response = execute(() -> client.get()
-                .uri(uri)
+                .uri(uriBuilder -> uriBuilder
+                        .path("/v1/billing/subscriptions/{subscriptionId}/transactions")
+                        .queryParam("start_time", start.truncatedTo(ChronoUnit.SECONDS).toString())
+                        .queryParam("end_time", end.truncatedTo(ChronoUnit.SECONDS).toString())
+                        .build(subscriptionId))
                 .headers(headers -> headers.setBearerAuth(token()))
                 .retrieve()
                 .body(JsonNode.class));
@@ -220,10 +223,6 @@ public class PayPalRestClient implements PayPalClient {
             call.run();
             return null;
         });
-    }
-
-    private static String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private static String requireText(JsonNode node, String field) {
