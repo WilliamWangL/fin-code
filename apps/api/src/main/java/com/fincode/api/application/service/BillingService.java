@@ -199,7 +199,13 @@ public class BillingService {
     @Transactional(readOnly = true)
     public InvoiceData invoices(Long organizationId, String subscriptionId) {
         requireConfigured();
-        requireOwnedSubscription(organizationId, subscriptionId);
+        PayPalSubscription record = requireOwnedSubscription(organizationId, subscriptionId);
+        // An unapproved subscription cannot have transactions yet and PayPal
+        // answers RESOURCE_NOT_FOUND (404) for it: return an empty history so
+        // the page never shows a provider error while approval is pending.
+        if (PayPalSubscription.STATUS_APPROVAL_PENDING.equals(record.getStatus())) {
+            return new InvoiceData(subscriptionId, List.of());
+        }
         Instant end = Instant.now();
         Instant start = end.minus(Duration.ofDays(INVOICE_HISTORY_DAYS));
         List<InvoiceLineData> lines = new ArrayList<>();

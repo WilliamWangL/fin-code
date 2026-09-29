@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -20,6 +22,7 @@ import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -289,6 +292,45 @@ class BillingContractTest {
                                 "I-TEST0099", 1L, "ACTIVE", "plan-dev-1")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("INVALID_WEBHOOK_SIGNATURE"));
+    }
+
+    // ── Invoices ────────────────────────────────────────────────────────────
+
+    @Test
+    void invoicesForPendingSubscriptionAreEmptyWithoutProviderCall() throws Exception {
+        Session session = register();
+        startPendingCheckout(session, "I-TEST0010");
+
+        mockMvc.perform(get("/v1/billing/invoices").param("subscription_id", "I-TEST0010")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.subscription_id").value("I-TEST0010"))
+                .andExpect(jsonPath("$.data.transactions", hasSize(0)));
+
+        // PayPal answers RESOURCE_NOT_FOUND (404) for unapproved subscriptions,
+        // so the pending case must never reach the provider.
+        verify(payPalClient, never()).listTransactions(anyString(), any(Instant.class), any(Instant.class));
+    }
+
+    @Test
+    void invoicesForActiveSubscriptionListProviderTransactions() throws Exception {
+        Session session = register();
+        activateSubscription(session, "I-TEST0011");
+        // The 93-day history is split into 31-day windows (3 provider calls);
+        // the transaction only exists in the first (oldest) window.
+        when(payPalClient.listTransactions(eq("I-TEST0011"), any(Instant.class), any(Instant.class)))
+                .thenReturn(List.of(new PayPalClient.TransactionInfo(
+                                "TXN-0001", "COMPLETED", "19.00", "USD", Instant.parse("2026-09-28T11:51:39Z"))),
+                        List.of(), List.of());
+
+        mockMvc.perform(get("/v1/billing/invoices").param("subscription_id", "I-TEST0011")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.transactions", hasSize(1)))
+                .andExpect(jsonPath("$.data.transactions[0].id").value("TXN-0001"))
+                .andExpect(jsonPath("$.data.transactions[0].status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.transactions[0].amount").value("19.00"))
+                .andExpect(jsonPath("$.data.transactions[0].currency").value("USD"));
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
