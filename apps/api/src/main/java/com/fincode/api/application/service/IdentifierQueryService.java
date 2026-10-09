@@ -55,6 +55,7 @@ public class IdentifierQueryService {
     private final BankSwiftCodeDirectoryRepository swiftDirectoryRepository;
     private final BankRoutingDirectoryRepository routingDirectoryRepository;
     private final ResponseCache responseCache;
+    private final SwiftDirectoryEnrichmentService swiftEnrichmentService;
 
     public IdentifierQueryService(BankIdentifierRepository identifierRepository,
                                   FinancialInstitutionRepository institutionRepository,
@@ -63,7 +64,8 @@ public class IdentifierQueryService {
                                   DataSourceRepository dataSourceRepository,
                                   BankSwiftCodeDirectoryRepository swiftDirectoryRepository,
                                   BankRoutingDirectoryRepository routingDirectoryRepository,
-                                  ResponseCache responseCache) {
+                                  ResponseCache responseCache,
+                                  SwiftDirectoryEnrichmentService swiftEnrichmentService) {
         this.identifierRepository = identifierRepository;
         this.institutionRepository = institutionRepository;
         this.countryRepository = countryRepository;
@@ -72,6 +74,7 @@ public class IdentifierQueryService {
         this.swiftDirectoryRepository = swiftDirectoryRepository;
         this.routingDirectoryRepository = routingDirectoryRepository;
         this.responseCache = responseCache;
+        this.swiftEnrichmentService = swiftEnrichmentService;
     }
 
     public SwiftData findSwift(String code) {
@@ -80,8 +83,11 @@ public class IdentifierQueryService {
             throw new ApiException(ErrorCode.INVALID_SWIFT);
         }
         return cached(IdentifierType.SWIFT, value, SwiftData.class,
-                () -> IdentifierMapper.toSwiftData(swiftDirectoryRepository.findBySwiftCode(value)
-                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND))));
+                () -> swiftDirectoryRepository.findBySwiftCode(value)
+                        // Local miss: ask the external providers and persist the hit.
+                        .or(() -> swiftEnrichmentService.lookupAndPersist(value))
+                        .map(IdentifierMapper::toSwiftData)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND)));
     }
 
     public RoutingData findRouting(String number) {
