@@ -41,6 +41,8 @@ services:
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      # api-ninjas.com key backing the external bank directory fallbacks.
+      API_NINJAS_KEY: ${API_NINJAS_KEY:-}
       # PayPal billing stays disabled until real credentials are provided.
       PAYPAL_ENV: ${PAYPAL_ENV:-sandbox}
       PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
