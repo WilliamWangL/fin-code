@@ -55,7 +55,7 @@ public class IdentifierQueryService {
     private final BankSwiftCodeDirectoryRepository swiftDirectoryRepository;
     private final BankRoutingDirectoryRepository routingDirectoryRepository;
     private final ResponseCache responseCache;
-    private final SwiftDirectoryEnrichmentService swiftEnrichmentService;
+    private final BankDirectoryEnrichmentService directoryEnrichmentService;
 
     public IdentifierQueryService(BankIdentifierRepository identifierRepository,
                                   FinancialInstitutionRepository institutionRepository,
@@ -65,7 +65,7 @@ public class IdentifierQueryService {
                                   BankSwiftCodeDirectoryRepository swiftDirectoryRepository,
                                   BankRoutingDirectoryRepository routingDirectoryRepository,
                                   ResponseCache responseCache,
-                                  SwiftDirectoryEnrichmentService swiftEnrichmentService) {
+                                  BankDirectoryEnrichmentService directoryEnrichmentService) {
         this.identifierRepository = identifierRepository;
         this.institutionRepository = institutionRepository;
         this.countryRepository = countryRepository;
@@ -74,7 +74,7 @@ public class IdentifierQueryService {
         this.swiftDirectoryRepository = swiftDirectoryRepository;
         this.routingDirectoryRepository = routingDirectoryRepository;
         this.responseCache = responseCache;
-        this.swiftEnrichmentService = swiftEnrichmentService;
+        this.directoryEnrichmentService = directoryEnrichmentService;
     }
 
     public SwiftData findSwift(String code) {
@@ -85,7 +85,7 @@ public class IdentifierQueryService {
         return cached(IdentifierType.SWIFT, value, SwiftData.class,
                 () -> swiftDirectoryRepository.findBySwiftCode(value)
                         // Local miss: ask the external providers and persist the hit.
-                        .or(() -> swiftEnrichmentService.lookupAndPersist(value))
+                        .or(() -> directoryEnrichmentService.lookupAndPersistSwift(value))
                         .map(IdentifierMapper::toSwiftData)
                         .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND)));
     }
@@ -99,8 +99,11 @@ public class IdentifierQueryService {
             throw new ApiException(ErrorCode.INVALID_ROUTING, "The routing number failed checksum validation");
         }
         return cached(IdentifierType.ABA_ROUTING, value, RoutingData.class,
-                () -> IdentifierMapper.toRoutingData(routingDirectoryRepository.findByRoutingNumber(value)
-                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND))));
+                () -> routingDirectoryRepository.findByRoutingNumber(value)
+                        // Local miss: ask the external provider and persist the hit.
+                        .or(() -> directoryEnrichmentService.lookupAndPersistRouting(value))
+                        .map(IdentifierMapper::toRoutingData)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND)));
     }
 
     public SortCodeData findSortCode(String code) {

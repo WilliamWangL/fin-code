@@ -2,7 +2,9 @@ package com.fincode.api.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fincode.api.config.ExternalApiProperties;
+import com.fincode.api.domain.model.BankRoutingDirectory;
 import com.fincode.api.domain.model.BankSwiftCodeDirectory;
+import java.math.BigDecimal;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,21 +14,22 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
- * External SWIFT directory lookups backing GET /v1/swift/{code} when the local
- * bank_swift_code_directory has no row: the Wise public validator first, then
- * api-ninjas.com. Both are best-effort enrichment sources - a miss or a
- * provider/network failure returns empty and never surfaces as an API error.
+ * External bank directory lookups backing GET /v1/swift/{code} and
+ * GET /v1/routing/{number} when the local directory tables have no row: the
+ * Wise public validator first for SWIFT, then api-ninjas.com for both. These
+ * are best-effort enrichment sources - a miss or a provider/network failure
+ * returns empty and never surfaces as an API error.
  */
 @Component
-public class SwiftLookupClient {
+public class BankDirectoryLookupClient {
 
-    private static final Logger log = LoggerFactory.getLogger(SwiftLookupClient.class);
+    private static final Logger log = LoggerFactory.getLogger(BankDirectoryLookupClient.class);
 
     private final ExternalApiProperties properties;
     private final RestClient wiseClient;
     private final RestClient apiNinjasClient;
 
-    public SwiftLookupClient(ExternalApiProperties properties, RestClient.Builder restClientBuilder) {
+    public BankDirectoryLookupClient(ExternalApiProperties properties, RestClient.Builder restClientBuilder) {
         this.properties = properties;
         this.wiseClient = restClientBuilder.clone().baseUrl("https://wise.com").build();
         this.apiNinjasClient = restClientBuilder.clone().baseUrl("https://api.api-ninjas.com").build();
@@ -108,8 +111,76 @@ public class SwiftLookupClient {
         return Optional.empty();
     }
 
+    /**
+     * api-ninjas.com /v1/routingnumber backing GET /v1/routing/{number};
+     * skipped while no API key is configured. The response also carries a
+     * swift_code for the institution, which the routing directory has no
+     * column for and is ignored.
+     */
+    public Optional<BankRoutingDirectory> lookupRoutingApiNinjas(String routingNumber) {
+        if (!properties.isApiNinjasConfigured()) {
+            return Optional.empty();
+        }
+        try {
+            JsonNode array = apiNinjasClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v1/routingnumber")
+                            .queryParam("routing_number", routingNumber)
+                            .build())
+                    .header("X-Api-Key", properties.getApiNinjasKey())
+                    .retrieve()
+                    .body(JsonNode.class);
+            if (array != null && array.isArray() && !array.isEmpty()) {
+                JsonNode obj = array.get(0);
+                BankRoutingDirectory row = new BankRoutingDirectory();
+                row.setRoutingNumber(text(obj, "routing_number"));
+                row.setBankName(text(obj, "bank_name"));
+                row.setStreetAddress(text(obj, "street_address"));
+                row.setCity(text(obj, "city"));
+                row.setState(text(obj, "state"));
+                row.setZipCode(text(obj, "zip_code"));
+                row.setCountry(text(obj, "country"));
+                row.setCounty(text(obj, "county"));
+                row.setTimezone(text(obj, "timezone"));
+                row.setLatitude(decimal(obj, "latitude"));
+                row.setLongitude(decimal(obj, "longitude"));
+                row.setPhoneNumber(text(obj, "phone_number"));
+                row.setAchSupported(bool(obj, "ach_supported"));
+                row.setFedwireSupported(bool(obj, "fedwire_supported"));
+                row.setChecksumValid(bool(obj, "checksum_valid"));
+                return Optional.of(row);
+            }
+        } catch (RestClientResponseException exception) {
+            log.warn("api-ninjas routing lookup rejected number {}: status={}",
+                    routingNumber, exception.getStatusCode().value());
+        } catch (ResourceAccessException exception) {
+            log.warn("api-ninjas routing lookup is unreachable for number {}: {}",
+                    routingNumber, exception.getMessage());
+        }
+        return Optional.empty();
+    }
+
     private static String text(JsonNode node, String field) {
         String value = node.path(field).asText(null);
         return value == null || value.isBlank() ? null : value;
+    }
+
+    /** Numeric fields arrive as strings such as "37.6255". */
+    private static BigDecimal decimal(JsonNode node, String field) {
+        String value = text(node, field);
+        if (value == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value);
+        } catch (NumberFormatException exception) {
+            log.warn("Ignoring unparsable {} value \'{}\' from api-ninjas", field, value);
+            return null;
+        }
+    }
+
+    private static Boolean bool(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() ? null : value.asBoolean();
     }
 }
