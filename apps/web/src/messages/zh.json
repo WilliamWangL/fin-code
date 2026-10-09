@@ -373,17 +373,17 @@
     "developer": {
       "name": "Developer",
       "description": "适合流量稳定的生产应用。",
-      "price": "$19"
+      "price": "$9.9"
     },
     "startup": {
       "name": "Startup",
       "description": "更高限额并开放网点数据。",
-      "price": "$49"
+      "price": "$19.9"
     },
     "business": {
       "name": "Business",
       "description": "优先 API、高级数据与 Webhook。",
-      "price": "$149"
+      "price": "$49.9"
     },
     "enterprise": {
       "name": "Enterprise",
