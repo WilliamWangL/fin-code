@@ -17,6 +17,9 @@ name: Deploy
 #                         container never needs the mysql root password)
 # Optional secrets: PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET / PAYPAL_WEBHOOK_ID /
 #   PAYPAL_PLAN_DEVELOPER / PAYPAL_PLAN_STARTUP / PAYPAL_PLAN_BUSINESS
+#   PAYPAL_ENV (sandbox|live, unset = sandbox) - environment the API talks to;
+#   set it to "live" last, after the live credentials, webhook id and plan ids
+#   are in place, so partial updates keep running against sandbox.
 
 on:
   push:
@@ -148,7 +151,7 @@ jobs:
             MYSQL_PASSWORD=${{ secrets.PROD_MYSQL_PASSWORD }}
             JWT_SECRET=${{ secrets.PROD_JWT_SECRET }}
             CORS_ALLOWED_ORIGINS=${{ env.SITE_URL }}
-            PAYPAL_ENV=sandbox
+            PAYPAL_ENV=${{ secrets.PAYPAL_ENV || 'sandbox' }}
             PAYPAL_CLIENT_ID=${{ env.PUBLIC_PAYPAL_CLIENT_ID }}
             PAYPAL_CLIENT_SECRET=${{ secrets.PAYPAL_CLIENT_SECRET }}
             PAYPAL_WEBHOOK_ID=${{ secrets.PAYPAL_WEBHOOK_ID }}
