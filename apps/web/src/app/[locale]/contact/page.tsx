@@ -42,19 +42,19 @@ export default async function ContactPage({
       icon: Building2,
       title: t("salesTitle"),
       body: t("salesBody"),
-      email: "sales@fincode.example.com",
+      email: "albert.wang682@gmail.com",
     },
     {
       icon: LifeBuoy,
       title: t("supportTitle"),
       body: t("supportBody"),
-      email: "support@fincode.example.com",
+      email: "albert.wang682@gmail.com",
     },
     {
       icon: Database,
       title: t("dataTitle"),
       body: t("dataBody"),
-      email: "data@fincode.example.com",
+      email: "albert.wang682@gmail.com",
     },
   ];
 
