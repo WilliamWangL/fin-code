@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fincode.api.TestcontainersConfiguration;
 import com.fincode.api.application.service.ApiKeyService;
+import com.fincode.api.client.BankDirectoryLookupClient;
 import com.fincode.api.domain.enums.IdentifierType;
 import com.fincode.api.domain.enums.InstitutionType;
 import com.fincode.api.domain.enums.Plan;
@@ -34,15 +35,18 @@ import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -73,6 +77,10 @@ class ApiContractTest {
 
     @Autowired
     private BankSwiftCodeDirectoryRepository swiftDirectoryRepository;
+
+    /** External directory enrichment is mocked so tests never call real providers. */
+    @MockitoBean
+    private BankDirectoryLookupClient directoryLookupClient;
 
     @Autowired
     private BankRoutingDirectoryRepository routingDirectoryRepository;
@@ -252,9 +260,53 @@ class ApiContractTest {
 
     @Test
     void swiftLookupReturnsNotFoundForUnknownCode() throws Exception {
+        Mockito.when(directoryLookupClient.lookupWise("AAAAAA1B")).thenReturn(Optional.empty());
+        Mockito.when(directoryLookupClient.lookupApiNinjas("AAAAAA1B")).thenReturn(Optional.empty());
         mockMvc.perform(get("/v1/swift/AAAAAA1B").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void swiftLookupFallsBackToExternalDirectoryAndPersists() throws Exception {
+        BankSwiftCodeDirectory external = new BankSwiftCodeDirectory();
+        external.setSwiftCode("DEUTDEFF");
+        external.setBankName("Deutsche Bank AG");
+        external.setCity("Frankfurt am Main");
+        external.setCountryCode("DE");
+        Mockito.when(directoryLookupClient.lookupWise("DEUTDEFF")).thenReturn(Optional.of(external));
+
+        mockMvc.perform(get("/v1/swift/DEUTDEFF").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.swift_code").value("DEUTDEFF"))
+                .andExpect(jsonPath("$.data.bank.name_en").value("Deutsche Bank AG"))
+                .andExpect(jsonPath("$.data.bank.country").value("DE"));
+
+        // The hit is persisted, so the directory serves the next lookup itself.
+        assertThat(swiftDirectoryRepository.findBySwiftCode("DEUTDEFF")).isPresent();
+    }
+
+    @Test
+    void routingLookupFallsBackToExternalDirectoryAndPersists() throws Exception {
+        BankRoutingDirectory external = new BankRoutingDirectory();
+        external.setRoutingNumber("111000012");
+        external.setBankName("BANK OF AMERICA, N.A.");
+        external.setCity("Henrico");
+        external.setState("VA");
+        external.setZipCode("23228");
+        external.setAchSupported(true);
+        external.setFedwireSupported(true);
+        external.setChecksumValid(true);
+        Mockito.when(directoryLookupClient.lookupRoutingApiNinjas("111000012")).thenReturn(Optional.of(external));
+
+        mockMvc.perform(get("/v1/routing/111000012").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.routing_number").value("111000012"))
+                .andExpect(jsonPath("$.data.checksum_valid").value(true))
+                .andExpect(jsonPath("$.data.bank.name_en").value("BANK OF AMERICA, N.A."));
+
+        // The hit is persisted, so the directory serves the next lookup itself.
+        assertThat(routingDirectoryRepository.findByRoutingNumber("111000012")).isPresent();
     }
 
     @Test

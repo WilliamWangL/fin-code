@@ -57,6 +57,11 @@ fincode:
       DEVELOPER: ${PAYPAL_PLAN_DEVELOPER:}
       STARTUP: ${PAYPAL_PLAN_STARTUP:}
       BUSINESS: ${PAYPAL_PLAN_BUSINESS:}
+  # Third-party enrichment APIs (spec §68). The api-ninjas.com key backs up
+  # SWIFT directory lookups when the local table has no row; empty keeps the
+  # fallback disabled.
+  external:
+    api-ninjas-key: ${API_NINJAS_KEY:}
 
 server:
   port: 8080
