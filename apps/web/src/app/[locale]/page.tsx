@@ -15,7 +15,6 @@ import {
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { JsonLd } from "@/components/json-ld";
-import { SearchBox } from "@/components/search-box";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -29,8 +28,6 @@ import { Link } from "@/i18n/navigation";
 import { countryByIso2, datasetStats, institutions } from "@/lib/data";
 import { alternatesFor, siteConfig } from "@/lib/site";
 import { cn } from "@/lib/utils";
-
-const POPULAR_SEARCHES = ["ICBKCNBJ", "DE89370400440532013000", "021000021", "062001"];
 
 const TOOLS = [
   { href: "/iban-checker", icon: Banknote, key: "ibanValidator" },
@@ -116,21 +113,6 @@ export default async function HomePage({
             <p className="mx-auto mt-5 max-w-2xl text-lg text-muted-foreground text-pretty">
               {t("home.heroSubtitle")}
             </p>
-            <div className="mx-auto mt-8 max-w-2xl">
-              <SearchBox size="lg" autoFocus={false} />
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-                <span>{t("common.popularSearches")}:</span>
-                {POPULAR_SEARCHES.map((term) => (
-                  <Link
-                    key={term}
-                    href={`/search?q=${encodeURIComponent(term)}`}
-                    className="rounded-full border border-border bg-card px-2.5 py-1 font-mono transition-colors hover:border-primary hover:text-primary"
-                  >
-                    {term}
-                  </Link>
-                ))}
-              </div>
-            </div>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link href="/register" className={cn(buttonVariants({ size: "lg" }))}>
                 {t("home.heroPrimary")}
@@ -429,14 +411,6 @@ export default async function HomePage({
           url: siteConfig.url,
           description: t("home.metaDescription"),
           inLanguage: locale,
-          potentialAction: {
-            "@type": "SearchAction",
-            target: {
-              "@type": "EntryPoint",
-              urlTemplate: `${siteConfig.url}/${locale}/search?q={search_term_string}`,
-            },
-            "query-input": "required name=search_term_string",
-          },
         }}
       />
       <JsonLd

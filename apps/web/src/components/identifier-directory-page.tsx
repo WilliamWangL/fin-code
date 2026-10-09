@@ -18,7 +18,7 @@ export interface IdentifierDirectoryPageProps {
  * (/swift-codes, /routing-numbers, /sort-codes, /bsb, /ifsc, /cnaps).
  *
  * Template: H1 + intro, "what is" explainer, optional format spec,
- * filterable directory table, FAQ, structured data.
+ * static directory table, FAQ, structured data.
  */
 export async function IdentifierDirectoryPage({
   locale,
@@ -96,13 +96,7 @@ export async function IdentifierDirectoryPage({
           {t("count", { count: rows.length })}
         </p>
         <div className="mt-6">
-          <IdentifierDirectory
-            rows={rows}
-            countries={countries}
-            apiLookup={
-              config.type === "SWIFT" ? "swift" : config.type === "ABA_ROUTING" ? "routing" : undefined
-            }
-          />
+          <IdentifierDirectory rows={rows} />
         </div>
       </section>
 

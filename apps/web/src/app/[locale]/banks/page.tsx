@@ -76,7 +76,7 @@ export default async function BanksPage({
           {t("resultCount", { count: rows.length })}
         </h2>
         <div className="mt-6">
-          <BankDirectory rows={rows} countries={countries} />
+          <BankDirectory rows={rows} />
         </div>
       </section>
 

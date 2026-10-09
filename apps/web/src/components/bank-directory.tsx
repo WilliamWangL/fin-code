@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -14,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 
 export interface BankRow {
   slug: string;
@@ -34,107 +34,71 @@ export interface BankCountryOption {
 }
 
 /**
- * Client-side filterable bank directory (keeps the page static for SSG/SEO
- * while providing instant search UX on the preview dataset).
+ * Static bank directory (keeps the page static for SSG/SEO). The preview
+ * rows are rendered as-is; the full directory is served by the registered
+ * API, so the CTA below the table routes interested visitors to sign up.
  */
-export function BankDirectory({
-  rows,
-  countries,
-}: {
-  rows: BankRow[];
-  countries: BankCountryOption[];
-}) {
+export function BankDirectory({ rows }: { rows: BankRow[] }) {
   const t = useTranslations("common");
   const banks = useTranslations("banks");
-  const [query, setQuery] = useState("");
-  const [country, setCountry] = useState("all");
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return rows.filter((row) => {
-      if (country !== "all" && row.countryIso2 !== country) return false;
-      if (!q) return true;
-      return (
-        row.nameEn.toLowerCase().includes(q) ||
-        row.shortName.toLowerCase().includes(q) ||
-        row.countryName.toLowerCase().includes(q) ||
-        row.primaryIdentifier.toLowerCase().includes(q)
-      );
-    });
-  }, [rows, query, country]);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <Input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={banks("searchPlaceholder")}
-          aria-label={banks("searchPlaceholder")}
-          className="sm:max-w-xs"
-        />
-        <select
-          value={country}
-          onChange={(event) => setCountry(event.target.value)}
-          aria-label={t("allCountries")}
-          className="h-10 rounded-lg border border-input bg-card px-3 text-sm shadow-sm focus-visible:outline-2 focus-visible:outline-ring"
-        >
-          <option value="all">{t("allCountries")}</option>
-          {countries.map((option) => (
-            <option key={option.iso2} value={option.iso2}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-        <p className="self-center text-sm text-muted-foreground" role="status">
-          {banks("resultCount", { count: filtered.length })}
-        </p>
-      </div>
-
-      {filtered.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          {t("noResults")}
-        </p>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("bank")}</TableHead>
-              <TableHead>{t("identifier")}</TableHead>
-              <TableHead>{t("country")}</TableHead>
-              <TableHead>{banks("identifiersColumn")}</TableHead>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("bank")}</TableHead>
+            <TableHead>{t("identifier")}</TableHead>
+            <TableHead>{t("country")}</TableHead>
+            <TableHead>{banks("identifiersColumn")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.slug}>
+              <TableCell>
+                <Link href={`/banks/${row.slug}`} className="text-sm font-medium hover:underline">
+                  {row.nameEn}
+                </Link>
+                <span className="block text-xs text-muted-foreground">{row.shortName}</span>
+              </TableCell>
+              <TableCell className="font-mono text-sm font-medium">
+                <Link href={row.primaryIdentifierHref} className="text-primary hover:underline">
+                  {row.primaryIdentifier}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <Link href={row.countryHref} className="text-sm hover:underline">
+                  {row.countryName}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <Badge variant="outline">
+                  {banks("identifiersCount", { count: row.identifiersCount })}
+                </Badge>
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((row) => (
-              <TableRow key={row.slug}>
-                <TableCell>
-                  <Link href={`/banks/${row.slug}`} className="text-sm font-medium hover:underline">
-                    {row.nameEn}
-                  </Link>
-                  <span className="block text-xs text-muted-foreground">{row.shortName}</span>
-                </TableCell>
-                <TableCell className="font-mono text-sm font-medium">
-                  <Link href={row.primaryIdentifierHref} className="text-primary hover:underline">
-                    {row.primaryIdentifier}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <Link href={row.countryHref} className="text-sm hover:underline">
-                    {row.countryName}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">
-                    {banks("identifiersCount", { count: row.identifiersCount })}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+          ))}
+        </TableBody>
+      </Table>
+
+      <div className="rounded-xl border border-border bg-card p-6 text-center">
+        <p className="text-sm font-medium">{t("directoryCtaTitle")}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t("directoryCtaBody")}
+        </p>
+        <div className="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link href="/register" className={cn(buttonVariants())}>
+            {t("getApiKey")}
+          </Link>
+          <Link
+            href="/login"
+            className={cn(buttonVariants({ variant: "outline" }))}
+          >
+            {t("signIn")}
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
