@@ -361,17 +361,17 @@
     "developer": {
       "name": "Developer",
       "description": "For production apps with steady traffic.",
-      "price": "$19"
+      "price": "$9.9"
     },
     "startup": {
       "name": "Startup",
       "description": "Higher limits and branch data access.",
-      "price": "$49"
+      "price": "$19.9"
     },
     "business": {
       "name": "Business",
       "description": "Priority API, advanced data and webhooks.",
-      "price": "$149"
+      "price": "$49.9"
     },
     "enterprise": {
       "name": "Enterprise",
