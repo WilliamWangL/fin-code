@@ -18,6 +18,7 @@ export async function SiteFooter() {
         { label: t("nav.bsbLookup"), href: "/bsb" },
         { label: t("nav.ifscLookup"), href: "/ifsc" },
         { label: t("nav.cnapsLookup"), href: "/cnaps" },
+        { label: t("nav.binLookup"), href: "/bin-checker" },
       ],
     },
     {

@@ -2,9 +2,12 @@ package com.fincode.api.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fincode.api.config.ExternalApiProperties;
+import com.fincode.api.domain.model.BankBinDirectory;
 import com.fincode.api.domain.model.BankRoutingDirectory;
 import com.fincode.api.domain.model.BankSwiftCodeDirectory;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,11 +17,12 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
- * External bank directory lookups backing GET /v1/swift/{code} and
- * GET /v1/routing/{number} when the local directory tables have no row: the
- * Wise public validator first for SWIFT, then api-ninjas.com for both. These
- * are best-effort enrichment sources - a miss or a provider/network failure
- * returns empty and never surfaces as an API error.
+ * External bank directory lookups backing GET /v1/swift/{code},
+ * GET /v1/routing/{number} and GET /v1/bin/{bin} when the local directory
+ * tables have no row: the Wise public validator first for SWIFT, then
+ * api-ninjas.com for all three. These are best-effort enrichment sources -
+ * a miss or a provider/network failure returns empty and never surfaces as
+ * an API error.
  */
 @Component
 public class BankDirectoryLookupClient {
@@ -158,6 +162,63 @@ public class BankDirectoryLookupClient {
                     routingNumber, exception.getMessage());
         }
         return Optional.empty();
+    }
+
+    /**
+     * api-ninjas.com /v2/bin backing GET /v1/bin/{bin}; skipped while no API
+     * key is configured. The row keeps the BIN the caller asked for so a local
+     * hit serves the next identical lookup.
+     */
+    public Optional<BankBinDirectory> lookupBinApiNinjas(String bin) {
+        if (!properties.isApiNinjasConfigured()) {
+            return Optional.empty();
+        }
+        try {
+            JsonNode array = apiNinjasClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v2/bin")
+                            .queryParam("bin", bin)
+                            .build())
+                    .header("X-Api-Key", properties.getApiNinjasKey())
+                    .retrieve()
+                    .body(JsonNode.class);
+            if (array != null && array.isArray() && !array.isEmpty()) {
+                JsonNode obj = array.get(0);
+                BankBinDirectory row = new BankBinDirectory();
+                row.setBin(bin);
+                row.setBrand(text(obj, "brand"));
+                row.setType(text(obj, "type"));
+                row.setCategories(categories(obj.path("categories")));
+                row.setIssuer(text(obj, "issuer"));
+                row.setCountry(text(obj, "country"));
+                row.setCountryIso2(text(obj, "country_iso2"));
+                row.setEu(bool(obj, "is_eu"));
+                row.setEea(bool(obj, "is_eea"));
+                row.setSepa(bool(obj, "is_sepa"));
+                row.setValid(bool(obj, "is_valid"));
+                return Optional.of(row);
+            }
+        } catch (RestClientResponseException exception) {
+            log.warn("api-ninjas BIN lookup rejected {}: status={}", bin, exception.getStatusCode().value());
+        } catch (ResourceAccessException exception) {
+            log.warn("api-ninjas BIN lookup is unreachable for {}: {}", bin, exception.getMessage());
+        }
+        return Optional.empty();
+    }
+
+    /** The provider returns the card categories as an array of plain strings. */
+    private static String categories(JsonNode array) {
+        if (array == null || !array.isArray() || array.isEmpty()) {
+            return null;
+        }
+        List<String> values = new ArrayList<>();
+        for (JsonNode node : array) {
+            String value = node.asText(null);
+            if (value != null && !value.isBlank()) {
+                values.add(value);
+            }
+        }
+        return values.isEmpty() ? null : String.join(",", values);
     }
 
     private static String text(JsonNode node, String field) {

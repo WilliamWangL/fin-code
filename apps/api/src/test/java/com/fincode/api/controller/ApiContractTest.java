@@ -15,6 +15,7 @@ import com.fincode.api.domain.enums.IdentifierType;
 import com.fincode.api.domain.enums.InstitutionType;
 import com.fincode.api.domain.enums.Plan;
 import com.fincode.api.domain.model.ApiKey;
+import com.fincode.api.domain.model.BankBinDirectory;
 import com.fincode.api.domain.model.BankBranch;
 import com.fincode.api.domain.model.BankIdentifier;
 import com.fincode.api.domain.model.BankRoutingDirectory;
@@ -23,6 +24,7 @@ import com.fincode.api.domain.model.Country;
 import com.fincode.api.domain.model.FinancialInstitution;
 import com.fincode.api.domain.model.IbanCountryFormat;
 import com.fincode.api.domain.repository.ApiKeyRepository;
+import com.fincode.api.domain.repository.BankBinDirectoryRepository;
 import com.fincode.api.domain.repository.BankBranchRepository;
 import com.fincode.api.domain.repository.BankIdentifierRepository;
 import com.fincode.api.domain.repository.BankRoutingDirectoryRepository;
@@ -84,6 +86,9 @@ class ApiContractTest {
 
     @Autowired
     private BankRoutingDirectoryRepository routingDirectoryRepository;
+
+    @Autowired
+    private BankBinDirectoryRepository binDirectoryRepository;
 
     @Autowired
     private BankBranchRepository branchRepository;
@@ -151,6 +156,8 @@ class ApiContractTest {
 
         saveSwiftDirectoryRow("ICBKCNBJ", "Industrial and Commercial Bank of China", "Beijing", "CN");
         saveRoutingDirectoryRow("021000021", "JPMorgan Chase Bank, N.A.", "New York", "NY");
+        saveBinDirectoryRow("424242", "Visa", "debit", "basic,classic", "Test Issuer Bank",
+                "United States", "US");
 
         icbcId = icbc.getId();
         enterpriseKey = apiKeyService.create("contract-enterprise", Plan.ENTERPRISE).rawKey();
@@ -310,18 +317,87 @@ class ApiContractTest {
     }
 
     @Test
+    void binLookupResolvesFromLocalDirectory() throws Exception {
+        mockMvc.perform(get("/v1/bin/424242").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.bin").value("424242"))
+                .andExpect(jsonPath("$.data.brand").value("Visa"))
+                .andExpect(jsonPath("$.data.type").value("debit"))
+                .andExpect(jsonPath("$.data.categories[0]").value("basic"))
+                .andExpect(jsonPath("$.data.categories[1]").value("classic"))
+                .andExpect(jsonPath("$.data.issuer").value("Test Issuer Bank"))
+                .andExpect(jsonPath("$.data.country").value("United States"))
+                .andExpect(jsonPath("$.data.country_iso2").value("US"))
+                .andExpect(jsonPath("$.data.is_eu").value(false))
+                .andExpect(jsonPath("$.data.is_eea").value(false))
+                .andExpect(jsonPath("$.data.is_sepa").value(false))
+                .andExpect(jsonPath("$.data.is_valid").value(true));
+    }
+
+    @Test
+    void binLookupRejectsInvalidFormat() throws Exception {
+        mockMvc.perform(get("/v1/bin/40531").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("INVALID_BIN"));
+        mockMvc.perform(get("/v1/bin/405316123").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("INVALID_BIN"));
+    }
+
+    @Test
+    void binLookupReturnsNotFoundForUnknownBin() throws Exception {
+        Mockito.when(directoryLookupClient.lookupBinApiNinjas("999999")).thenReturn(Optional.empty());
+        mockMvc.perform(get("/v1/bin/999999").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void binLookupFallsBackToExternalDirectoryAndPersists() throws Exception {
+        BankBinDirectory external = new BankBinDirectory();
+        external.setBin("405316");
+        external.setBrand("Visa");
+        external.setType("credit");
+        external.setCategories("basic");
+        external.setIssuer("Jpmorgan Chase Bank N.A.");
+        external.setCountry("United States");
+        external.setCountryIso2("US");
+        external.setEu(false);
+        external.setEea(false);
+        external.setSepa(false);
+        external.setValid(true);
+        Mockito.when(directoryLookupClient.lookupBinApiNinjas("405316")).thenReturn(Optional.of(external));
+
+        mockMvc.perform(get("/v1/bin/405316").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.bin").value("405316"))
+                .andExpect(jsonPath("$.data.brand").value("Visa"))
+                .andExpect(jsonPath("$.data.type").value("credit"))
+                .andExpect(jsonPath("$.data.categories[0]").value("basic"))
+                .andExpect(jsonPath("$.data.issuer").value("Jpmorgan Chase Bank N.A."))
+                .andExpect(jsonPath("$.data.country_iso2").value("US"))
+                .andExpect(jsonPath("$.data.is_valid").value(true));
+
+        // The hit is persisted, so the directory serves the next lookup itself.
+        assertThat(binDirectoryRepository.findByBin("405316")).isPresent();
+    }
+
+    @Test
     void anonymousDirectoryLookupsArePublicAndIpRateLimited() throws Exception {
-        // The website search calls these two endpoints without an API key.
+        // The website tools call these endpoints without an API key.
         mockMvc.perform(get("/v1/swift/ICBKCNBJ"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.swift_code").value("ICBKCNBJ"));
         mockMvc.perform(get("/v1/routing/021000021"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.routing_number").value("021000021"));
+        mockMvc.perform(get("/v1/bin/424242"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.bin").value("424242"));
 
         // The anonymous bucket is 10 lookups per minute per IP; this test
         // exhausts it, so it must stay the only anonymous caller in the suite.
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 7; i++) {
             mockMvc.perform(get("/v1/swift/ICBKCNBJ"))
                     .andExpect(status().isOk());
         }
@@ -603,5 +679,22 @@ class ApiContractTest {
         row.setState(state);
         row.setChecksumValid(true);
         routingDirectoryRepository.save(row);
+    }
+
+    private void saveBinDirectoryRow(String bin, String brand, String type, String categories, String issuer,
+                                     String country, String countryIso2) {
+        BankBinDirectory row = new BankBinDirectory();
+        row.setBin(bin);
+        row.setBrand(brand);
+        row.setType(type);
+        row.setCategories(categories);
+        row.setIssuer(issuer);
+        row.setCountry(country);
+        row.setCountryIso2(countryIso2);
+        row.setEu(false);
+        row.setEea(false);
+        row.setSepa(false);
+        row.setValid(true);
+        binDirectoryRepository.save(row);
     }
 }

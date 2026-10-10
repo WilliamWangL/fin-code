@@ -18,11 +18,11 @@ public final class ApiScopes {
     private static final String[] PUBLIC_PREFIXES = {"/v1/webhooks"};
 
     /**
-     * Directory lookups the public website search may call without an API key
+     * Directory lookups the public website tools may call without an API key
      * (rate-limited per client IP downstream). Authenticated callers keep full
      * access with their plan limits; every other /v1 path still requires a key.
      */
-    private static final String[] PUBLIC_IDENTIFIER_PREFIXES = {"/v1/swift", "/v1/routing"};
+    private static final String[] PUBLIC_IDENTIFIER_PREFIXES = {"/v1/swift", "/v1/routing", "/v1/bin"};
 
     private ApiScopes() {
     }

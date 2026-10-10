@@ -35,6 +35,7 @@ function buildNavGroups(nav: ReturnType<typeof useTranslations>): NavGroup[] {
         { label: nav("bsbLookup"), href: "/bsb" },
         { label: nav("ifscLookup"), href: "/ifsc" },
         { label: nav("cnapsLookup"), href: "/cnaps" },
+        { label: nav("binLookup"), href: "/bin-checker" },
         { label: nav("bankDirectory"), href: "/banks" },
       ],
     },

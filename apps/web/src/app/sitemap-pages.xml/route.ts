@@ -14,6 +14,7 @@ const STATIC_PATHS = [
   { path: "/bsb", priority: 0.9, changefreq: "weekly" as const },
   { path: "/ifsc", priority: 0.9, changefreq: "weekly" as const },
   { path: "/cnaps", priority: 0.9, changefreq: "weekly" as const },
+  { path: "/bin-checker", priority: 0.9, changefreq: "weekly" as const },
   { path: "/banks", priority: 0.8, changefreq: "weekly" as const },
   { path: "/countries", priority: 0.8, changefreq: "weekly" as const },
   { path: "/pricing", priority: 0.7, changefreq: "monthly" as const },

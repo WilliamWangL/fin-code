@@ -364,6 +364,41 @@ const cnapsDoc = endpointDoc({
   errors: [["INVALID_CNAPS", "The code is not 12 digits."], ...GENERIC_ERRORS],
 });
 
+const binDoc = endpointDoc({
+  slug: "bin",
+  title: "Card BIN / IIN lookup",
+  description:
+    "Resolve a card BIN (the first 6 to 8 digits of a card number) to its brand, type and issuing bank.",
+  path: `${API}/bin/{bin}`,
+  intro:
+    "Returns the card network, funding type, issuing bank and region membership flags for a BIN. Records are served from the FinCode BIN directory; unknown BINs are resolved through the upstream provider and persisted so later lookups hit the directory directly.",
+  params: [["bin", "string", "The card BIN/IIN — 6 to 8 digits, e.g. 405316."]],
+  requestExample: `curl -s "${API}/bin/405316" \\
+  -H "Authorization: Bearer sk_xxx"`,
+  responseExample: `{
+  "data": {
+    "bin": "405316",
+    "country_iso2": "US",
+    "is_eu": false,
+    "is_eea": false,
+    "is_sepa": false,
+    "country": "United States",
+    "brand": "Visa",
+    "type": "credit",
+    "categories": ["basic"],
+    "issuer": "Jpmorgan Chase Bank N.A.",
+    "is_valid": true
+  },
+  "meta": { "request_id": "req_3c9f21b7" }
+}`,
+  errors: [
+    ["INVALID_BIN", "The BIN is not 6 to 8 digits."],
+    ...GENERIC_ERRORS,
+  ],
+  notes:
+    "This endpoint is also available anonymously for the website BIN checker and is rate-limited per network address. Pass an API key for higher limits and quota accounting.",
+});
+
 export const docPages: DocPage[] = [
   // ── Getting started ─────────────────────────────────────────────────────
   {
@@ -630,6 +665,7 @@ export const docPages: DocPage[] = [
   bsbDoc,
   ifscDoc,
   cnapsDoc,
+  binDoc,
   {
     slug: "banks",
     title: "Bank directory API",
@@ -829,6 +865,7 @@ GET ${API}/countries/{code}/iban-format`,
             ["GET", "/v1/bsb/{code}", "Look up an Australian BSB."],
             ["GET", "/v1/ifsc/{code}", "Look up an Indian IFSC."],
             ["GET", "/v1/cnaps/{code}", "Look up a China CNAPS code."],
+            ["GET", "/v1/bin/{bin}", "Look up a card BIN/IIN (brand, type and issuer)."],
             ["GET", "/v1/banks", "List financial institutions."],
             ["GET", "/v1/banks/{id}", "Get one institution."],
             ["GET", "/v1/banks/search?q=", "Search institutions by name."],

@@ -2,6 +2,7 @@ package com.fincode.api.controller;
 
 import com.fincode.api.application.service.IdentifierQueryService;
 import com.fincode.api.dto.ApiResponse;
+import com.fincode.api.dto.IdentifierDtos.BinData;
 import com.fincode.api.dto.IdentifierDtos.BsbData;
 import com.fincode.api.dto.IdentifierDtos.CnapsData;
 import com.fincode.api.dto.IdentifierDtos.IfscData;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Typed identifier endpoints (spec §26, FIN-007): SWIFT, ABA routing, UK sort
- * code, Australian BSB, Indian IFSC and Chinese CNAPS.
+ * code, Australian BSB, Indian IFSC, Chinese CNAPS and card BIN/IIN.
  */
 @RestController
 @RequestMapping("/v1")
@@ -55,5 +56,10 @@ public class IdentifierController {
     @GetMapping("/cnaps/{code}")
     public ApiResponse<CnapsData> cnaps(@PathVariable String code) {
         return ApiResponse.of(identifierQueryService.findCnaps(code));
+    }
+
+    @GetMapping("/bin/{bin}")
+    public ApiResponse<BinData> bin(@PathVariable String bin) {
+        return ApiResponse.of(identifierQueryService.findBin(bin));
     }
 }

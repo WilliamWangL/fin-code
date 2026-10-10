@@ -9,6 +9,7 @@ import com.fincode.api.domain.model.BankSwiftCodeDirectory;
 import com.fincode.api.domain.model.Country;
 import com.fincode.api.domain.model.DataSource;
 import com.fincode.api.domain.model.FinancialInstitution;
+import com.fincode.api.domain.repository.BankBinDirectoryRepository;
 import com.fincode.api.domain.repository.BankBranchRepository;
 import com.fincode.api.domain.repository.BankIdentifierRepository;
 import com.fincode.api.domain.repository.BankRoutingDirectoryRepository;
@@ -21,6 +22,7 @@ import com.fincode.api.domain.service.IdentifierNormalizer;
 import com.fincode.api.domain.service.ResolvedIdentifier;
 import com.fincode.api.domain.service.RoutingValidator;
 import com.fincode.api.domain.service.SwiftValidator;
+import com.fincode.api.dto.IdentifierDtos.BinData;
 import com.fincode.api.dto.IdentifierDtos.BsbData;
 import com.fincode.api.dto.IdentifierDtos.CnapsData;
 import com.fincode.api.dto.IdentifierDtos.IfscData;
@@ -54,6 +56,7 @@ public class IdentifierQueryService {
     private final DataSourceRepository dataSourceRepository;
     private final BankSwiftCodeDirectoryRepository swiftDirectoryRepository;
     private final BankRoutingDirectoryRepository routingDirectoryRepository;
+    private final BankBinDirectoryRepository binDirectoryRepository;
     private final ResponseCache responseCache;
     private final BankDirectoryEnrichmentService directoryEnrichmentService;
 
@@ -64,6 +67,7 @@ public class IdentifierQueryService {
                                   DataSourceRepository dataSourceRepository,
                                   BankSwiftCodeDirectoryRepository swiftDirectoryRepository,
                                   BankRoutingDirectoryRepository routingDirectoryRepository,
+                                  BankBinDirectoryRepository binDirectoryRepository,
                                   ResponseCache responseCache,
                                   BankDirectoryEnrichmentService directoryEnrichmentService) {
         this.identifierRepository = identifierRepository;
@@ -73,6 +77,7 @@ public class IdentifierQueryService {
         this.dataSourceRepository = dataSourceRepository;
         this.swiftDirectoryRepository = swiftDirectoryRepository;
         this.routingDirectoryRepository = routingDirectoryRepository;
+        this.binDirectoryRepository = binDirectoryRepository;
         this.responseCache = responseCache;
         this.directoryEnrichmentService = directoryEnrichmentService;
     }
@@ -124,6 +129,19 @@ public class IdentifierQueryService {
     public CnapsData findCnaps(String code) {
         return cachedTyped(IdentifierType.CNAPS, code, ErrorCode.INVALID_CNAPS, CnapsData.class,
                 IdentifierMapper::toCnapsData);
+    }
+
+    public BinData findBin(String bin) {
+        String value = IdentifierNormalizer.normalize(bin);
+        if (!IdentifierFormatValidator.isValid(IdentifierType.BIN, value)) {
+            throw new ApiException(ErrorCode.INVALID_BIN);
+        }
+        return cached(IdentifierType.BIN, value, BinData.class,
+                () -> binDirectoryRepository.findByBin(value)
+                        // Local miss: ask the external provider and persist the hit.
+                        .or(() -> directoryEnrichmentService.lookupAndPersistBin(value))
+                        .map(IdentifierMapper::toBinData)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND)));
     }
 
     /** Resolves a raw (not yet normalized) typed value or throws NOT_FOUND. */
