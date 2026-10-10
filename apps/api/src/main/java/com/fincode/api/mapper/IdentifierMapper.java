@@ -1,5 +1,6 @@
 package com.fincode.api.mapper;
 
+import com.fincode.api.domain.model.BankBinDirectory;
 import com.fincode.api.domain.model.BankBranch;
 import com.fincode.api.domain.model.BankRoutingDirectory;
 import com.fincode.api.domain.model.BankSwiftCodeDirectory;
@@ -11,6 +12,7 @@ import com.fincode.api.domain.service.SwiftValidator;
 import com.fincode.api.dto.BankDtos.BranchData;
 import com.fincode.api.dto.CommonDtos.BankSummary;
 import com.fincode.api.dto.CommonDtos.SourceInfo;
+import com.fincode.api.dto.IdentifierDtos.BinData;
 import com.fincode.api.dto.IdentifierDtos.BsbData;
 import com.fincode.api.dto.IdentifierDtos.CnapsData;
 import com.fincode.api.dto.IdentifierDtos.IfscData;
@@ -18,6 +20,8 @@ import com.fincode.api.dto.IdentifierDtos.RoutingData;
 import com.fincode.api.dto.IdentifierDtos.SortCodeData;
 import com.fincode.api.dto.IdentifierDtos.SwiftData;
 import com.fincode.api.dto.IdentifierDtos.SwiftFormat;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Maps resolved domain records to the API response payloads (spec §26).
@@ -109,6 +113,33 @@ public final class IdentifierMapper {
                 row.getState(),
                 "ACTIVE",
                 null);
+    }
+
+    /** Maps a bank_bin_directory row (GET /v1/bin/{bin} backend). */
+    public static BinData toBinData(BankBinDirectory row) {
+        return new BinData(
+                row.getBin(),
+                row.getCountryIso2(),
+                row.getEu(),
+                row.getEea(),
+                row.getSepa(),
+                row.getCountry(),
+                row.getBrand(),
+                row.getType(),
+                splitCategories(row.getCategories()),
+                row.getIssuer(),
+                row.getValid());
+    }
+
+    /** The single categories column stores the provider's array comma-separated. */
+    private static List<String> splitCategories(String categories) {
+        if (categories == null || categories.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(categories.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .toList();
     }
 
     private static BankSummary directorySummary(String bankName, String countryIso2) {

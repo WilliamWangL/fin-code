@@ -1,8 +1,10 @@
 package com.fincode.api.application.service;
 
 import com.fincode.api.client.BankDirectoryLookupClient;
+import com.fincode.api.domain.model.BankBinDirectory;
 import com.fincode.api.domain.model.BankRoutingDirectory;
 import com.fincode.api.domain.model.BankSwiftCodeDirectory;
+import com.fincode.api.domain.repository.BankBinDirectoryRepository;
 import com.fincode.api.domain.repository.BankRoutingDirectoryRepository;
 import com.fincode.api.domain.repository.BankSwiftCodeDirectoryRepository;
 import java.util.Optional;
@@ -14,10 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Enriches the bank directories with external providers: when the local
- * bank_swift_code_directory or bank_routing_directory has no row, Wise
- * (SWIFT only, preferred) and then api-ninjas.com are queried and any hit is
- * persisted for future lookups. The write runs in its own transaction because
- * callers sit inside read-only query transactions.
+ * bank_swift_code_directory, bank_routing_directory or bank_bin_directory
+ * has no row, Wise (SWIFT only, preferred) and then api-ninjas.com are
+ * queried and any hit is persisted for future lookups. The write runs in
+ * its own transaction because callers sit inside read-only query
+ * transactions.
  */
 @Service
 public class BankDirectoryEnrichmentService {
@@ -26,13 +29,16 @@ public class BankDirectoryEnrichmentService {
 
     private final BankSwiftCodeDirectoryRepository swiftDirectoryRepository;
     private final BankRoutingDirectoryRepository routingDirectoryRepository;
+    private final BankBinDirectoryRepository binDirectoryRepository;
     private final BankDirectoryLookupClient lookupClient;
 
     public BankDirectoryEnrichmentService(BankSwiftCodeDirectoryRepository swiftDirectoryRepository,
                                           BankRoutingDirectoryRepository routingDirectoryRepository,
+                                          BankBinDirectoryRepository binDirectoryRepository,
                                           BankDirectoryLookupClient lookupClient) {
         this.swiftDirectoryRepository = swiftDirectoryRepository;
         this.routingDirectoryRepository = routingDirectoryRepository;
+        this.binDirectoryRepository = binDirectoryRepository;
         this.lookupClient = lookupClient;
     }
 
@@ -55,6 +61,17 @@ public class BankDirectoryEnrichmentService {
         found.ifPresent(row -> {
             routingDirectoryRepository.save(row);
             log.info("Persisted routing directory row {} from an external provider", routingNumber);
+        });
+        return found;
+    }
+
+    /** Looks the card BIN up externally and saves the hit, or empty when unknown everywhere. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Optional<BankBinDirectory> lookupAndPersistBin(String bin) {
+        Optional<BankBinDirectory> found = lookupClient.lookupBinApiNinjas(bin);
+        found.ifPresent(row -> {
+            binDirectoryRepository.save(row);
+            log.info("Persisted BIN directory row {} from an external provider", bin);
         });
         return found;
     }

@@ -74,6 +74,12 @@ class IdentifierValidatorsTest {
             assertThat(IdentifierFormatValidator.isValid(IdentifierType.CNAPS, "102100099996")).isTrue();
             assertThat(IdentifierFormatValidator.isValid(IdentifierType.CNAPS, "10210009999")).isFalse();
             assertThat(IdentifierFormatValidator.isValid(IdentifierType.ABA_ROUTING, "021000021")).isTrue();
+            assertThat(IdentifierFormatValidator.isValid(IdentifierType.BIN, "405316")).isTrue();
+            assertThat(IdentifierFormatValidator.isValid(IdentifierType.BIN, "40531612")).isTrue();
+            assertThat(IdentifierFormatValidator.isValid(IdentifierType.BIN, "40531612345678")).isFalse();
+            assertThat(IdentifierFormatValidator.isValid(IdentifierType.BIN, "40531")).isFalse();
+            assertThat(IdentifierFormatValidator.isValid(IdentifierType.BIN, "405316123456789")).isFalse();
+            assertThat(IdentifierFormatValidator.isValid(IdentifierType.BIN, "40531A")).isFalse();
         }
 
         @Test

@@ -22,6 +22,7 @@ public enum ErrorCode {
     INVALID_BSB(HttpStatus.UNPROCESSABLE_ENTITY, "The code is not 6 digits"),
     INVALID_IFSC(HttpStatus.UNPROCESSABLE_ENTITY, "The code is not a valid 11-character IFSC"),
     INVALID_CNAPS(HttpStatus.UNPROCESSABLE_ENTITY, "The code is not 12 digits"),
+    INVALID_BIN(HttpStatus.UNPROCESSABLE_ENTITY, "The BIN is not 6 to 8 digits"),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limit exceeded - retry after the indicated delay"),
 
     // Portal / developer account codes (FIN-003, FIN-004)

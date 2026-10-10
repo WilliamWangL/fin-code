@@ -11,6 +11,7 @@ public enum IdentifierType {
     BSB,
     IFSC,
     CNAPS,
+    BIN,
     BANK_CODE,
     CLEARING_CODE,
     TRANSIT_NUMBER,

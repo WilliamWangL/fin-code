@@ -52,9 +52,10 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         Matcher matcher = header == null ? null : BEARER.matcher(header);
         if (matcher == null || !matcher.matches()) {
-            // The directory lookups double as the website's public search:
-            // browsers without an API key may query them, throttled per IP by
-            // RateLimitFilter downstream. Everything else still needs a key.
+            // The directory lookups also back the website's public lookup
+            // tools: browsers without an API key may query them, throttled per
+            // IP by RateLimitFilter downstream. Everything else still needs a
+            // key.
             if (ApiScopes.isPublicIdentifierPath(path)) {
                 chain.doFilter(request, response);
                 return;

@@ -51,11 +51,12 @@ class FincodeApiApplicationTests {
                 "paypal_subscription",
                 "paypal_webhook_event",
                 "bank_swift_code_directory",
-                "bank_routing_directory");
+                "bank_routing_directory",
+                "bank_bin_directory");
 
         List<String> appliedMigrations = jdbcTemplate.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = TRUE ORDER BY installed_rank",
                 String.class);
-        assertThat(appliedMigrations).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11");
+        assertThat(appliedMigrations).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12");
     }
 }

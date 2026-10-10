@@ -11,6 +11,7 @@ import {
   Network,
   Search,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
@@ -37,6 +38,7 @@ const TOOLS = [
   { href: "/bsb", icon: MapPin, key: "bsbLookup" },
   { href: "/ifsc", icon: Landmark, key: "ifscLookup" },
   { href: "/cnaps", icon: CreditCard, key: "cnapsLookup" },
+  { href: "/bin-checker", icon: Wallet, key: "binLookup" },
   { href: "/banks", icon: Building2, key: "bankDirectory" },
 ] as const;
 
@@ -48,6 +50,7 @@ const IDENTIFIERS = [
   { name: "BSB", example: "062-001", href: "/bsb", region: "Australia" },
   { name: "IFSC", example: "HDFC0000001", href: "/ifsc", region: "India" },
   { name: "CNAPS", example: "102100099996", href: "/cnaps", region: "China" },
+  { name: "Card BIN", example: "405316", href: "/bin-checker", region: "Global" },
   { name: "Bank Directory", example: "40+ institutions", href: "/banks", region: "Worldwide" },
 ] as const;
 

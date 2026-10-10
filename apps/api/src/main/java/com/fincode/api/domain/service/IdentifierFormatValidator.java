@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 public final class IdentifierFormatValidator {
 
     private static final Pattern SIX_DIGITS = Pattern.compile("^\\d{6}$");
+    private static final Pattern BIN_SIX_TO_EIGHT_DIGITS = Pattern.compile("^\\d{6,8}$");
     private static final Pattern ELEVEN_IFSC = Pattern.compile("^[A-Z]{4}0[A-Z0-9]{6}$");
     private static final Pattern TWELVE_DIGITS = Pattern.compile("^\\d{12}$");
     private static final Pattern NINE_DIGITS = Pattern.compile("^\\d{9}$");
@@ -20,6 +21,7 @@ public final class IdentifierFormatValidator {
             IdentifierType.BSB, SIX_DIGITS,
             IdentifierType.IFSC, ELEVEN_IFSC,
             IdentifierType.CNAPS, TWELVE_DIGITS,
+            IdentifierType.BIN, BIN_SIX_TO_EIGHT_DIGITS,
             IdentifierType.ABA_ROUTING, NINE_DIGITS,
             IdentifierType.SWIFT, SWIFT_BIC,
             IdentifierType.BIC, SWIFT_BIC);
