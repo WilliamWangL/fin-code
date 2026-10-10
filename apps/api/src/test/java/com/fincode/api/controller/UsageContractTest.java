@@ -88,11 +88,11 @@ class UsageContractTest {
         orgCId = Long.valueOf(ownerC[0]);
         accessC = ownerC[1];
 
-        ApiKey keyA1 = apiKeyService.create("usage-key-1", false, Plan.FREE, orgAId).apiKey();
-        ApiKey keyA2 = apiKeyService.create("usage-key-2", false, Plan.FREE, orgAId).apiKey();
+        ApiKey keyA1 = apiKeyService.create("usage-key-1", Plan.FREE, orgAId).apiKey();
+        ApiKey keyA2 = apiKeyService.create("usage-key-2", Plan.FREE, orgAId).apiKey();
         keyA1Id = keyA1.getId();
         keyA2Id = keyA2.getId();
-        keyC = apiKeyService.create("usage-key-c", false, Plan.FREE, orgCId).rawKey();
+        keyC = apiKeyService.create("usage-key-c", Plan.FREE, orgCId).rawKey();
 
         LocalDateTime noonToday = today.atStartOfDay().plusHours(12);
         LocalDateTime noonPrevMonthEnd = prevMonthEnd.atStartOfDay().plusHours(12);

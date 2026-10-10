@@ -166,7 +166,7 @@ export function fetchApiKeys(): Promise<ApiKeyData[]> {
   return request<ApiKeyData[]>("/api-keys");
 }
 
-export function createApiKey(input: { name: string; live: boolean }): Promise<ApiKeyCreatedData> {
+export function createApiKey(input: { name: string }): Promise<ApiKeyCreatedData> {
   return request<ApiKeyCreatedData>("/api-keys", { method: "POST", body: input });
 }
 

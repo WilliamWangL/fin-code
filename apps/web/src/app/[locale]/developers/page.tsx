@@ -45,7 +45,7 @@ export default async function DevelopersPage({
   ];
 
   const quickstartCode = `curl -s "${siteConfig.apiBaseUrl}/iban/validate?iban=DE89370400440532013000" \\
-  -H "Authorization: Bearer sk_test_xxx"`;
+  -H "Authorization: Bearer sk_xxx"`;
 
   const responseCode = `{
   "data": {

@@ -34,7 +34,6 @@ export function ApiKeysPanel() {
   const [revealed, setRevealed] = useState<ApiKeyCreatedData | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
-  const [live, setLive] = useState(false);
   const [creating, setCreating] = useState(false);
   const [pendingId, setPendingId] = useState<number | null>(null);
 
@@ -57,11 +56,10 @@ export function ApiKeysPanel() {
     setCreating(true);
     setError(null);
     try {
-      const created = await createApiKey({ name: name.trim(), live });
+      const created = await createApiKey({ name: name.trim() });
       setKeys((previous) => [created.api_key, ...(previous ?? [])]);
       setRevealed(created);
       setName("");
-      setLive(false);
       setShowForm(false);
     } catch (caught) {
       setError(caught);
@@ -165,16 +163,6 @@ export function ApiKeysPanel() {
                   onChange={(event) => setName(event.target.value)}
                 />
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={live}
-                  onChange={(event) => setLive(event.target.checked)}
-                  className="h-4 w-4 rounded border-input"
-                />
-                <span className="font-medium">{t("keysLive")}</span>
-              </label>
-              <p className="text-xs text-muted-foreground">{t("keysLiveHint")}</p>
               <div className="flex gap-2">
                 <Button type="submit" disabled={creating}>
                   {creating ? t("keysCreating") : t("keysCreate")}

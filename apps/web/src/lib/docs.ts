@@ -146,7 +146,7 @@ const swiftDoc = endpointDoc({
     ["code", "string", "The SWIFT/BIC code, e.g. ICBKCNBJ. Case-insensitive."],
   ],
   requestExample: `curl -s "${API}/swift/ICBKCNBJ" \\
-  -H "Authorization: Bearer sk_test_xxx"`,
+  -H "Authorization: Bearer sk_xxx"`,
   responseExample: `{
   "data": {
     "swift_code": "ICBKCNBJ",
@@ -193,7 +193,7 @@ const routingDoc = endpointDoc({
     ["number", "string", "The 9-digit ABA routing number, e.g. 021000021."],
   ],
   requestExample: `curl -s "${API}/routing/021000021" \\
-  -H "Authorization: Bearer sk_test_xxx"`,
+  -H "Authorization: Bearer sk_xxx"`,
   responseExample: `{
   "data": {
     "routing_number": "021000021",
@@ -231,7 +231,7 @@ const sortCodeDoc = endpointDoc({
     "Returns the UK institution behind a 6-digit sort code. Dashes in the request value are accepted and normalized.",
   params: [["code", "string", 'The sort code, e.g. "200000" or "20-00-00".']],
   requestExample: `curl -s "${API}/sort-code/20-00-00" \\
-  -H "Authorization: Bearer sk_test_xxx"`,
+  -H "Authorization: Bearer sk_xxx"`,
   responseExample: `{
   "data": {
     "sort_code": "200000",
@@ -268,7 +268,7 @@ const bsbDoc = endpointDoc({
     "Returns the Australian institution behind a BSB number. Dashes in the request value are accepted and normalized.",
   params: [["code", "string", 'The BSB, e.g. "062001" or "062-001".']],
   requestExample: `curl -s "${API}/bsb/062-001" \\
-  -H "Authorization: Bearer sk_test_xxx"`,
+  -H "Authorization: Bearer sk_xxx"`,
   responseExample: `{
   "data": {
     "bsb": "062001",
@@ -303,7 +303,7 @@ const ifscDoc = endpointDoc({
     "Returns the Indian bank and branch behind an IFSC assigned by the Reserve Bank of India.",
   params: [["code", "string", "The 11-character IFSC, e.g. SBIN0001234."]],
   requestExample: `curl -s "${API}/ifsc/SBIN0001234" \\
-  -H "Authorization: Bearer sk_test_xxx"`,
+  -H "Authorization: Bearer sk_xxx"`,
   responseExample: `{
   "data": {
     "ifsc": "SBIN0001234",
@@ -337,7 +337,7 @@ const cnapsDoc = endpointDoc({
     "Returns the Chinese institution behind a 12-digit CNAPS code (联行号) used in the national payment system.",
   params: [["code", "string", "The 12-digit CNAPS code, e.g. 102100099996."]],
   requestExample: `curl -s "${API}/cnaps/102100099996" \\
-  -H "Authorization: Bearer sk_test_xxx"`,
+  -H "Authorization: Bearer sk_xxx"`,
   responseExample: `{
   "data": {
     "cnaps": "102100099996",
@@ -376,7 +376,7 @@ export const docPages: DocPage[] = [
       {
         id: "create-key",
         title: "1. Create an API key",
-        body: "Sign up and generate a test key from the dashboard. Keys use the sk_test_ prefix in development and sk_live_ in production. Keys are shown once — store them somewhere safe and rotate them from the dashboard at any time.",
+        body: "Sign up and generate an API key from the dashboard. Keys use the sk_ prefix. Keys are shown once — store them somewhere safe and rotate them from the dashboard at any time.",
       },
       {
         id: "first-request",
@@ -386,7 +386,7 @@ export const docPages: DocPage[] = [
           code(
             "bash",
             `curl -s "${API}/iban/validate?iban=DE89370400440532013000" \\
-  -H "Authorization: Bearer sk_test_xxx"`,
+  -H "Authorization: Bearer sk_xxx"`,
           ),
         ],
       },
@@ -429,13 +429,13 @@ export const docPages: DocPage[] = [
       {
         id: "bearer",
         title: "Bearer authentication",
-        body: "All API requests require an API key in the Authorization header. Two key types exist: sk_test_ for the sandbox and sk_live_ for production traffic.",
+        body: "All API requests require an API key in the Authorization header. Keys use the sk_ prefix followed by a random secret.",
         code: [
-          code("http", `Authorization: Bearer sk_test_xxx`),
+          code("http", `Authorization: Bearer sk_xxx`),
           code(
             "bash",
-            `curl -s "${API}/banks" \\
-  -H "Authorization: Bearer sk_live_xxx"`,
+            `curl -s "${API}/banks" \
+  -H "Authorization: Bearer sk_xxx"`,
           ),
         ],
       },
@@ -572,7 +572,7 @@ export const docPages: DocPage[] = [
           code(
             "bash",
             `curl -s "${API}/iban/validate?iban=DE89 3704 0044 0532 0130 00" \\
-  -H "Authorization: Bearer sk_test_xxx"`,
+  -H "Authorization: Bearer sk_xxx"`,
           ),
         ],
       },
@@ -670,7 +670,7 @@ GET ${API}/banks/{id}/branches`,
           code(
             "bash",
             `curl -s "${API}/banks/search?q=chase&limit=5" \\
-  -H "Authorization: Bearer sk_test_xxx"`,
+  -H "Authorization: Bearer sk_xxx"`,
           ),
         ],
       },
@@ -725,7 +725,7 @@ GET ${API}/countries/{code}/iban-format`,
           code(
             "bash",
             `curl -s "${API}/countries/DE/iban-format" \\
-  -H "Authorization: Bearer sk_test_xxx"`,
+  -H "Authorization: Bearer sk_xxx"`,
           ),
         ],
       },
@@ -770,7 +770,7 @@ GET ${API}/countries/{code}/iban-format`,
           code(
             "bash",
             `curl -s "${API}/lookup?q=ICBKCNBJ" \\
-  -H "Authorization: Bearer sk_test_xxx"`,
+  -H "Authorization: Bearer sk_xxx"`,
           ),
         ],
       },
@@ -818,7 +818,7 @@ GET ${API}/countries/{code}/iban-format`,
       {
         id: "endpoints",
         title: "Data API",
-        body: "Authenticated with an API key: Authorization: Bearer sk_test_... (or sk_live_...).",
+        body: "Authenticated with an API key: Authorization: Bearer sk_...",
         table: {
           headers: ["Method", "Path", "Description"],
           rows: [

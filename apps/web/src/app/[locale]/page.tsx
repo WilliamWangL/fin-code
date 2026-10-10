@@ -83,7 +83,7 @@ export default async function HomePage({
   }));
 
   const quickstartCode = `curl "https://api.fincode.example.com/v1/iban/validate?iban=DE89370400440532013000" \\
-  -H "Authorization: Bearer sk_test_..."`;
+  -H "Authorization: Bearer sk_..."`;
 
   const responseCode = `{
   "data": {

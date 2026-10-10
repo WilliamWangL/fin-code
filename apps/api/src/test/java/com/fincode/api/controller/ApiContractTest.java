@@ -153,9 +153,9 @@ class ApiContractTest {
         saveRoutingDirectoryRow("021000021", "JPMorgan Chase Bank, N.A.", "New York", "NY");
 
         icbcId = icbc.getId();
-        enterpriseKey = apiKeyService.create("contract-enterprise", false, Plan.ENTERPRISE).rawKey();
-        freeKey = apiKeyService.create("contract-free", false, Plan.FREE).rawKey();
-        quotaKey = apiKeyService.create("contract-quota", false, Plan.FREE).rawKey();
+        enterpriseKey = apiKeyService.create("contract-enterprise", Plan.ENTERPRISE).rawKey();
+        freeKey = apiKeyService.create("contract-free", Plan.FREE).rawKey();
+        quotaKey = apiKeyService.create("contract-quota", Plan.FREE).rawKey();
     }
 
     // ── Authentication ──────────────────────────────────────────────────────
@@ -172,7 +172,7 @@ class ApiContractTest {
 
     @Test
     void invalidKeyReturns401() throws Exception {
-        mockMvc.perform(get("/v1/countries").header(HttpHeaders.AUTHORIZATION, "Bearer sk_test_not-a-real-key"))
+        mockMvc.perform(get("/v1/countries").header(HttpHeaders.AUTHORIZATION, "Bearer sk_not-a-real-key"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     }

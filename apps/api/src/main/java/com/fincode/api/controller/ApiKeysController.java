@@ -51,8 +51,7 @@ public class ApiKeysController {
         Plan plan = organizationRepository.findById(organizationId)
                 .map(Organization::getPlan)
                 .orElse(Plan.FREE);
-        ApiKeyService.CreatedKey created = apiKeyService.create(request.name(),
-                Boolean.TRUE.equals(request.live()), plan, organizationId);
+        ApiKeyService.CreatedKey created = apiKeyService.create(request.name(), plan, organizationId);
         return ApiResponse.of(AccountMapper.toApiKeyCreatedData(created.apiKey(), created.rawKey()));
     }
 
