@@ -76,7 +76,7 @@ export function DashboardOverview() {
 
   const snippet = [
     `curl "${siteConfig.apiBaseUrl}/iban/validate?iban=DE89370400440532013000" \\`,
-    `  -H "Authorization: Bearer sk_test_your_key"`,
+    `  -H "Authorization: Bearer sk_your_key"`,
   ].join("\n");
 
   return (

@@ -354,13 +354,13 @@ class AccountContractTest {
         MvcResult created = mockMvc.perform(post("/v1/api-keys")
                         .header(HttpHeaders.AUTHORIZATION, bearer(ownerAccess))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"portal-key\",\"live\":false}"))
+                        .content("{\"name\":\"portal-key\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.api_key.name").value("portal-key"))
                 .andExpect(jsonPath("$.data.api_key.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.api_key.plan").value("FREE"))
                 .andExpect(jsonPath("$.data.api_key.organization_id").value(ownerOrganizationId.intValue()))
-                .andExpect(jsonPath("$.data.key", startsWith("sk_test_")))
+                .andExpect(jsonPath("$.data.key", startsWith("sk_")))
                 .andReturn();
 
         String body = json(created);
@@ -383,7 +383,7 @@ class AccountContractTest {
         MvcResult rotated = mockMvc.perform(post("/v1/api-keys/" + keyId + "/rotate")
                         .header(HttpHeaders.AUTHORIZATION, bearer(ownerAccess)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.key", startsWith("sk_test_")))
+                .andExpect(jsonPath("$.data.key", startsWith("sk_")))
                 .andReturn();
         String rotatedBody = json(rotated);
         String rotatedKey = stringAt(rotatedBody, "$.data.key");

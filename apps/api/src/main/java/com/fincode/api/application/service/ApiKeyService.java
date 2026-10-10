@@ -17,15 +17,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * API key lifecycle (spec §24, FIN-014). Keys look like {@code sk_test_xxx} /
- * {@code sk_live_xxx}; only the SHA-256 hash is stored, the plaintext key is
- * returned exactly once at creation time.
+ * API key lifecycle (spec §24, FIN-014). Keys look like {@code sk_xxx}; only
+ * the SHA-256 hash is stored, the plaintext key is returned exactly once at
+ * creation time.
  */
 @Service
 public class ApiKeyService {
 
-    private static final String TEST_PREFIX = "sk_test_";
-    private static final String LIVE_PREFIX = "sk_live_";
+    private static final String KEY_PREFIX = "sk_";
     private static final int VISIBLE_PREFIX_LENGTH = 12;
     private static final int SECRET_LENGTH = 32;
     private static final char[] SECRET_ALPHABET =
@@ -39,14 +38,13 @@ public class ApiKeyService {
     }
 
     @Transactional
-    public CreatedKey create(String name, boolean live, Plan plan) {
-        return create(name, live, plan, null);
+    public CreatedKey create(String name, Plan plan) {
+        return create(name, plan, null);
     }
 
     @Transactional
-    public CreatedKey create(String name, boolean live, Plan plan, Long organizationId) {
-        String prefix = live ? LIVE_PREFIX : TEST_PREFIX;
-        String rawKey = prefix + randomSecret();
+    public CreatedKey create(String name, Plan plan, Long organizationId) {
+        String rawKey = KEY_PREFIX + randomSecret();
         ApiKey apiKey = new ApiKey();
         apiKey.setName(name == null || name.isBlank() ? "Default key" : name.trim());
         apiKey.setKeyPrefix(rawKey.substring(0, VISIBLE_PREFIX_LENGTH));
@@ -72,13 +70,12 @@ public class ApiKeyService {
         return apiKey;
     }
 
-    /** Revokes the old key and issues a replacement with the same name, mode and plan. */
+    /** Revokes the old key and issues a replacement with the same name and plan. */
     @Transactional
     public CreatedKey rotate(Long keyId, Long organizationId) {
         ApiKey existing = requireOwned(keyId, organizationId);
-        boolean live = existing.getKeyPrefix() != null && existing.getKeyPrefix().startsWith(LIVE_PREFIX);
         revoke(existing.getId(), organizationId);
-        return create(existing.getName(), live, existing.getPlan(), organizationId);
+        return create(existing.getName(), existing.getPlan(), organizationId);
     }
 
     private ApiKey requireOwned(Long keyId, Long organizationId) {

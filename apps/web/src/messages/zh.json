@@ -578,8 +578,6 @@
     "keysCancel": "取消",
     "keysCreateName": "Key 名称",
     "keysCreateNamePlaceholder": "生产环境后端",
-    "keysLive": "正式 Key（live）",
-    "keysLiveHint": "生产环境使用正式 Key，开发阶段使用测试 Key。",
     "keysEmpty": "还没有 API Key，创建第一个即可调用 API。",
     "keysName": "名称",
     "keysKey": "Key",

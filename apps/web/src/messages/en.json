@@ -578,8 +578,6 @@
     "keysCancel": "Cancel",
     "keysCreateName": "Key name",
     "keysCreateNamePlaceholder": "Production backend",
-    "keysLive": "Live key",
-    "keysLiveHint": "Use live keys in production and test keys during development.",
     "keysEmpty": "No API keys yet. Create your first key to call the API.",
     "keysName": "Name",
     "keysKey": "Key",

@@ -14,8 +14,7 @@ public final class ApiKeyDtos {
     }
 
     public record CreateApiKeyRequest(
-            @NotBlank @Size(max = 100) String name,
-            Boolean live) {
+            @NotBlank @Size(max = 100) String name) {
     }
 
     public record ApiKeyData(
