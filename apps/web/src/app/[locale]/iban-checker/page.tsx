@@ -23,9 +23,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   return {
-    title: "IBAN Checker — Validate IBAN Format & Checksum",
+    title: "IBAN Checker — Validate IBAN & Look Up the Bank (SWIFT/BIC)",
     description:
-      "Free IBAN validator: check format, length, MOD-97 checksum and country structure, and extract the bank code and account number.",
+      "Free IBAN validator: check format, length, MOD-97 checksum and country structure, extract the bank code and account number, and look up the bank name and SWIFT/BIC code.",
     alternates: alternatesFor(locale, "/iban-checker"),
   };
 }

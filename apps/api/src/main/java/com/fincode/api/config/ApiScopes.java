@@ -22,7 +22,8 @@ public final class ApiScopes {
      * (rate-limited per client IP downstream). Authenticated callers keep full
      * access with their plan limits; every other /v1 path still requires a key.
      */
-    private static final String[] PUBLIC_IDENTIFIER_PREFIXES = {"/v1/swift", "/v1/routing", "/v1/bin"};
+    private static final String[] PUBLIC_IDENTIFIER_PREFIXES =
+            {"/v1/swift", "/v1/routing", "/v1/bin", "/v1/iban"};
 
     private ApiScopes() {
     }
