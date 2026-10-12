@@ -17,6 +17,12 @@ public final class IbanDtos {
                                    String accountNumber, int length, Integer expectedLength, IbanChecks checks) {
     }
 
+    /** IBAN lookup payload: the parsed fields plus the resolved bank, or null while unknown. */
+    public record IbanLookupData(boolean valid, String iban, String country, String checkDigits, String bankCode,
+                                 String accountNumber, int length, Integer expectedLength,
+                                 IdentifierDtos.SwiftData bank) {
+    }
+
     public record IbanFormatData(String countryCode, int ibanLength, String structure,
                                  Position bankIdentifierPosition, Position accountNumberPosition, String example) {
     }

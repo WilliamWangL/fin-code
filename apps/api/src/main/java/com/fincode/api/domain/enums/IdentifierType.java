@@ -6,6 +6,7 @@ package com.fincode.api.domain.enums;
 public enum IdentifierType {
     SWIFT,
     BIC,
+    IBAN,
     ABA_ROUTING,
     SORT_CODE,
     BSB,
