@@ -1,6 +1,7 @@
 package com.fincode.api.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -121,7 +122,10 @@ class ApiContractTest {
         Country au = saveCountry("AU", "AUS", "Australia", false);
         Country india = saveCountry("IN", "IND", "India", false);
 
-        IbanCountryFormat format = new IbanCountryFormat();
+        // V14 seeds the reference rows already; upsert so the fixture stays
+        // independent of whether migrations or tests inserted them first.
+        IbanCountryFormat format = ibanCountryFormatRepository.findByCountryCodeAndVersion("DE", "1")
+                .orElseGet(IbanCountryFormat::new);
         format.setCountryCode("DE");
         format.setIbanLength(22);
         format.setBbanLength(18);
@@ -604,7 +608,7 @@ class ApiContractTest {
     void countriesListAndDetail() throws Exception {
         mockMvc.perform(get("/v1/countries").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(6)));
+                .andExpect(jsonPath("$.data[*].country_code", hasItems("CN", "DE", "US", "GB", "AU", "IN")));
 
         mockMvc.perform(get("/v1/countries/DE").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
                 .andExpect(status().isOk())
@@ -702,7 +706,7 @@ class ApiContractTest {
     }
 
     private Country saveCountry(String iso2, String iso3, String name, boolean ibanSupported) {
-        Country country = new Country();
+        Country country = countryRepository.findByIso2(iso2).orElseGet(Country::new);
         country.setIso2(iso2);
         country.setIso3(iso3);
         country.setNameEn(name);

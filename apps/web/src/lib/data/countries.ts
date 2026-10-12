@@ -68,8 +68,8 @@ export const countries: Country[] = [
 
   // ── South Asia ────────────────────────────────────────────────────────────
   { iso2: "PK", iso3: "PAK", numeric: "586", nameEn: "Pakistan", nameLocal: "巴基斯坦", currency: "PKR", iban: { supported: true, length: 24 } },
-  { iso2: "BD", iso3: "BGD", numeric: "050", nameEn: "Bangladesh", nameLocal: "孟加拉国", currency: "BDT", iban: { supported: true, length: 28 } },
-  { iso2: "LK", iso3: "LKA", numeric: "144", nameEn: "Sri Lanka", nameLocal: "斯里兰卡", currency: "LKR", iban: { supported: true, length: 28 } },
+  { iso2: "BD", iso3: "BGD", numeric: "050", nameEn: "Bangladesh", nameLocal: "孟加拉国", currency: "BDT", iban: { supported: false } },
+  { iso2: "LK", iso3: "LKA", numeric: "144", nameEn: "Sri Lanka", nameLocal: "斯里兰卡", currency: "LKR", iban: { supported: false } },
 ];
 
 export const countryByIso2: Record<string, Country> = Object.fromEntries(
