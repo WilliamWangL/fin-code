@@ -43,7 +43,7 @@ const TOOLS = [
 ] as const;
 
 const IDENTIFIERS = [
-  { name: "IBAN", example: "DE89 3704 0044...", href: "/iban/DE", region: "EU + 80 countries" },
+  { name: "IBAN", example: "DE89 3704 0044...", href: "/iban/DE", region: "89 countries" },
   { name: "SWIFT/BIC", example: "ICBKCNBJ", href: "/swift-codes", region: "Global" },
   { name: "Routing Number", example: "021000021", href: "/routing-numbers", region: "United States" },
   { name: "Sort Code", example: "20-00-00", href: "/sort-codes", region: "United Kingdom" },

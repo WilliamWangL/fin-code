@@ -579,9 +579,9 @@ export const docPages: DocPage[] = [
   // ── Endpoints ───────────────────────────────────────────────────────────
   {
     slug: "iban",
-    title: "IBAN validation",
+    title: "IBAN validation & bank lookup",
     description:
-      "Validate IBAN format, country, length, MOD-97 checksum and BBAN structure.",
+      "Validate IBAN format, country, length, MOD-97 checksum and BBAN structure, and resolve the bank behind the IBAN (SWIFT/BIC).",
     group: "endpoints",
     sections: [
       {
@@ -651,6 +651,70 @@ export const docPages: DocPage[] = [
             ["MISSING_PARAMETER", "The iban query parameter is absent."],
           ],
         },
+      },
+      {
+        id: "bank-lookup",
+        title: "Bank lookup",
+        body: "The lookup endpoint validates the IBAN and resolves the bank behind it, local-first: the BBAN bank code is mapped through the FinCode bank-code → SWIFT/BIC directory, and the SWIFT directory supplies the institution details. Unknown banks are enriched from the upstream provider and persisted, so later lookups hit the directory directly. A valid IBAN whose bank is not in the directory yet still returns valid: true — the bank field is simply omitted.",
+        code: [code("http", `GET ${API}/iban/{iban}`)],
+      },
+      {
+        id: "bank-lookup-parameters",
+        title: "Parameters",
+        table: {
+          headers: ["Name", "Type", "In", "Description"],
+          rows: [
+            ["iban", "string", "path", "The IBAN to validate and enrich with bank details."],
+          ],
+        },
+      },
+      {
+        id: "bank-lookup-example",
+        title: "Example request",
+        code: [
+          code(
+            "bash",
+            `curl -s "${API}/iban/DE16200700000532013000" \\
+  -H "Authorization: Bearer sk_xxx"`,
+          ),
+        ],
+      },
+      {
+        id: "bank-lookup-response",
+        title: "Example response",
+        code: [
+          code(
+            "json",
+            `{
+  "data": {
+    "valid": true,
+    "iban": "DE16200700000532013000",
+    "country": "DE",
+    "check_digits": "16",
+    "bank_code": "20070000",
+    "account_number": "0532013000",
+    "length": 22,
+    "expected_length": 22,
+    "bank": {
+      "swift_code": "DEUTDEHH",
+      "bic": "DEUTDEHH",
+      "bank": {
+        "name_en": "DEUTSCHE BANK AG",
+        "country": "DE"
+      },
+      "city": "Hamburg",
+      "status": "ACTIVE"
+    }
+  },
+  "meta": { "request_id": "req_5f8d2c41" }
+}`,
+          ),
+        ],
+      },
+      {
+        id: "bank-lookup-notes",
+        title: "Notes",
+        body: "This endpoint is also available anonymously for the website IBAN checker and is rate-limited per network address. Bank availability never affects the validity result — validation is a pure format and checksum computation.",
       },
       {
         id: "notes",
@@ -859,6 +923,7 @@ GET ${API}/countries/{code}/iban-format`,
           headers: ["Method", "Path", "Description"],
           rows: [
             ["GET", "/v1/iban/validate?iban=", "Validate an IBAN."],
+            ["GET", "/v1/iban/{iban}", "Validate an IBAN and resolve the bank (SWIFT/BIC, local-first)."],
             ["GET", "/v1/swift/{code}", "Look up a SWIFT/BIC code."],
             ["GET", "/v1/routing/{number}", "Look up a US routing number."],
             ["GET", "/v1/sort-code/{code}", "Look up a UK sort code."],

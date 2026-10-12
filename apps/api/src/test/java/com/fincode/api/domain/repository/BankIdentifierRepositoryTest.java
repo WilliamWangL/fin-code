@@ -33,7 +33,8 @@ class BankIdentifierRepositoryTest {
 
     @Test
     void duplicateIdentifierTypeAndValueIsRejected() {
-        Country country = new Country();
+        // V14 already seeds CN; upsert to stay independent of seed order.
+        Country country = countryRepository.findByIso2("CN").orElseGet(Country::new);
         country.setIso2("CN");
         country.setIso3("CHN");
         country.setNameEn("China");

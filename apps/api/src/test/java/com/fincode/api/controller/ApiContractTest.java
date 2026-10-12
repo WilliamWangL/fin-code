@@ -1,6 +1,7 @@
 package com.fincode.api.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -121,7 +122,10 @@ class ApiContractTest {
         Country au = saveCountry("AU", "AUS", "Australia", false);
         Country india = saveCountry("IN", "IND", "India", false);
 
-        IbanCountryFormat format = new IbanCountryFormat();
+        // V14 seeds the reference rows already; upsert so the fixture stays
+        // independent of whether migrations or tests inserted them first.
+        IbanCountryFormat format = ibanCountryFormatRepository.findByCountryCodeAndVersion("DE", "1")
+                .orElseGet(IbanCountryFormat::new);
         format.setCountryCode("DE");
         format.setIbanLength(22);
         format.setBbanLength(18);
@@ -221,6 +225,37 @@ class ApiContractTest {
                 .andExpect(jsonPath("$.data.checks.checksum").value(true))
                 .andExpect(jsonPath("$.data.checks.structure").value(true))
                 .andExpect(jsonPath("$.meta.request_id", startsWith("req_")));
+    }
+
+    @Test
+    void ibanValidationAcceptsEmiratesIbanFromReport() throws Exception {
+        mockMvc.perform(get("/v1/iban/validate")
+                        .param("iban", "AE810260001025797740102")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.valid").value(true))
+                .andExpect(jsonPath("$.data.country").value("AE"))
+                .andExpect(jsonPath("$.data.bank_code").value("026"))
+                .andExpect(jsonPath("$.data.account_number").value("0001025797740102"))
+                .andExpect(jsonPath("$.data.length").value(23));
+    }
+
+    @Test
+    void ibanValidationCoversNewRegistryCountries() throws Exception {
+        mockMvc.perform(get("/v1/iban/validate")
+                        .param("iban", "AD1400080001001234567890")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.valid").value(true))
+                .andExpect(jsonPath("$.data.country").value("AD"))
+                .andExpect(jsonPath("$.data.check_digits").value("14"))
+                .andExpect(jsonPath("$.data.bank_code").value("0008"))
+                .andExpect(jsonPath("$.data.account_number").value("001234567890"))
+                .andExpect(jsonPath("$.data.length").value(24))
+                .andExpect(jsonPath("$.data.expected_length").value(24))
+                .andExpect(jsonPath("$.data.checks.charset").value(true))
+                .andExpect(jsonPath("$.data.checks.checksum").value(true))
+                .andExpect(jsonPath("$.data.checks.structure").value(true));
     }
 
     @Test
@@ -465,10 +500,13 @@ class ApiContractTest {
         mockMvc.perform(get("/v1/bin/424242"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.bin").value("424242"));
+        mockMvc.perform(get("/v1/iban/DE16200700000532013000"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.bank.swift_code").value("DEUTDEHH"));
 
         // The anonymous bucket is 10 lookups per minute per IP; this test
         // exhausts it, so it must stay the only anonymous caller in the suite.
-        for (int i = 0; i < 7; i++) {
+        for (int i = 0; i < 6; i++) {
             mockMvc.perform(get("/v1/swift/ICBKCNBJ"))
                     .andExpect(status().isOk());
         }
@@ -604,7 +642,7 @@ class ApiContractTest {
     void countriesListAndDetail() throws Exception {
         mockMvc.perform(get("/v1/countries").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(6)));
+                .andExpect(jsonPath("$.data[*].country_code", hasItems("CN", "DE", "US", "GB", "AU", "IN")));
 
         mockMvc.perform(get("/v1/countries/DE").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
                 .andExpect(status().isOk())
@@ -702,7 +740,7 @@ class ApiContractTest {
     }
 
     private Country saveCountry(String iso2, String iso3, String name, boolean ibanSupported) {
-        Country country = new Country();
+        Country country = countryRepository.findByIso2(iso2).orElseGet(Country::new);
         country.setIso2(iso2);
         country.setIso3(iso3);
         country.setNameEn(name);
