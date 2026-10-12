@@ -7,6 +7,8 @@ export const siteConfig = {
   // Public PayPal client id for the checkout buttons (FIN-019); billing stays
   // hidden in the portal when it is not set.
   paypalClientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? "",
+  // GA4 measurement id for the gtag.js tag rendered in the locale layout.
+  googleAnalyticsId: "G-1XRVXLMRD8",
   locales: ["en", "zh"] as const,
   defaultLocale: "en",
 } as const;
