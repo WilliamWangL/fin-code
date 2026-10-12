@@ -228,6 +228,37 @@ class ApiContractTest {
     }
 
     @Test
+    void ibanValidationAcceptsEmiratesIbanFromReport() throws Exception {
+        mockMvc.perform(get("/v1/iban/validate")
+                        .param("iban", "AE810260001025797740102")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.valid").value(true))
+                .andExpect(jsonPath("$.data.country").value("AE"))
+                .andExpect(jsonPath("$.data.bank_code").value("026"))
+                .andExpect(jsonPath("$.data.account_number").value("0001025797740102"))
+                .andExpect(jsonPath("$.data.length").value(23));
+    }
+
+    @Test
+    void ibanValidationCoversNewRegistryCountries() throws Exception {
+        mockMvc.perform(get("/v1/iban/validate")
+                        .param("iban", "AD1400080001001234567890")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.valid").value(true))
+                .andExpect(jsonPath("$.data.country").value("AD"))
+                .andExpect(jsonPath("$.data.check_digits").value("14"))
+                .andExpect(jsonPath("$.data.bank_code").value("0008"))
+                .andExpect(jsonPath("$.data.account_number").value("001234567890"))
+                .andExpect(jsonPath("$.data.length").value(24))
+                .andExpect(jsonPath("$.data.expected_length").value(24))
+                .andExpect(jsonPath("$.data.checks.charset").value(true))
+                .andExpect(jsonPath("$.data.checks.checksum").value(true))
+                .andExpect(jsonPath("$.data.checks.structure").value(true));
+    }
+
+    @Test
     void ibanValidationRejectsBadChecksum() throws Exception {
         mockMvc.perform(get("/v1/iban/validate")
                         .param("iban", "DE89370400440532013001")
