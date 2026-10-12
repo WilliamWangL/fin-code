@@ -22,6 +22,7 @@ import com.fincode.api.domain.model.BankRoutingDirectory;
 import com.fincode.api.domain.model.BankSwiftCodeDirectory;
 import com.fincode.api.domain.model.Country;
 import com.fincode.api.domain.model.FinancialInstitution;
+import com.fincode.api.domain.model.IbanBankCodeMap;
 import com.fincode.api.domain.model.IbanCountryFormat;
 import com.fincode.api.domain.repository.ApiKeyRepository;
 import com.fincode.api.domain.repository.BankBinDirectoryRepository;
@@ -31,6 +32,7 @@ import com.fincode.api.domain.repository.BankRoutingDirectoryRepository;
 import com.fincode.api.domain.repository.BankSwiftCodeDirectoryRepository;
 import com.fincode.api.domain.repository.CountryRepository;
 import com.fincode.api.domain.repository.FinancialInstitutionRepository;
+import com.fincode.api.domain.repository.IbanBankCodeMapRepository;
 import com.fincode.api.domain.repository.IbanCountryFormatRepository;
 import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
@@ -89,6 +91,9 @@ class ApiContractTest {
 
     @Autowired
     private BankBinDirectoryRepository binDirectoryRepository;
+
+    @Autowired
+    private IbanBankCodeMapRepository ibanBankCodeMapRepository;
 
     @Autowired
     private BankBranchRepository branchRepository;
@@ -155,6 +160,8 @@ class ApiContractTest {
         saveIdentifier(sbi.getId(), null, IdentifierType.IFSC, "SBIN0001234", india);
 
         saveSwiftDirectoryRow("ICBKCNBJ", "Industrial and Commercial Bank of China", "Beijing", "CN");
+        saveIbanBankCodeMap("DE", "20070000", "DEUTDEHH");
+        saveSwiftDirectoryRow("DEUTDEHH", "DEUTSCHE BANK AG", "Hamburg", "DE");
         saveRoutingDirectoryRow("021000021", "JPMorgan Chase Bank, N.A.", "New York", "NY");
         saveBinDirectoryRow("424242", "Visa", "debit", "basic,classic", "Test Issuer Bank",
                 "United States", "US");
@@ -239,6 +246,70 @@ class ApiContractTest {
         mockMvc.perform(get("/v1/iban/validate").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("MISSING_PARAMETER"));
+    }
+
+    @Test
+    void ibanLookupResolvesBankFromLocalMapAndDirectory() throws Exception {
+        mockMvc.perform(get("/v1/iban/DE16200700000532013000")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.valid").value(true))
+                .andExpect(jsonPath("$.data.iban").value("DE16200700000532013000"))
+                .andExpect(jsonPath("$.data.country").value("DE"))
+                .andExpect(jsonPath("$.data.bank_code").value("20070000"))
+                .andExpect(jsonPath("$.data.account_number").value("0532013000"))
+                .andExpect(jsonPath("$.data.bank.swift_code").value("DEUTDEHH"))
+                .andExpect(jsonPath("$.data.bank.bank.name_en").value("DEUTSCHE BANK AG"))
+                .andExpect(jsonPath("$.data.bank.bank.country").value("DE"))
+                .andExpect(jsonPath("$.data.bank.status").value("ACTIVE"));
+
+        // Seeded locally: both the map and the directory serve the lookup without any provider.
+        assertThat(ibanBankCodeMapRepository.findByCountryCodeAndBankCode("DE", "20070000")).isPresent();
+        assertThat(swiftDirectoryRepository.findBySwiftCode("DEUTDEHH")).isPresent();
+    }
+
+    @Test
+    void ibanLookupFallsBackToExternalProviderAndPersistsMap() throws Exception {
+        Mockito.when(directoryLookupClient.lookupIbanApiNinjas("DE44500105175407324931"))
+                .thenReturn(Optional.of(new BankDirectoryLookupClient.IbanEnrichment(
+                        "DE44500105175407324931", true, "DE", "50010517",
+                        "INGDDEFFXXX", "ING-DiBa", "THEODOR-HEUSS-ALLEE 2, FRANKFURT AM MAIN", "5407324931")));
+
+        mockMvc.perform(get("/v1/iban/DE44500105175407324931")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.valid").value(true))
+                .andExpect(jsonPath("$.data.bank_code").value("50010517"))
+                .andExpect(jsonPath("$.data.bank.swift_code").value("INGDDEFFXXX"))
+                .andExpect(jsonPath("$.data.bank.bank.name_en").value("ING-DiBa"));
+
+        // The map and the directory row are persisted, so the next IBAN at this
+        // bank resolves locally without any provider call.
+        assertThat(ibanBankCodeMapRepository.findByCountryCodeAndBankCode("DE", "50010517"))
+                .hasValueSatisfying(row -> assertThat(row.getSwiftCode()).isEqualTo("INGDDEFFXXX"));
+        assertThat(swiftDirectoryRepository.findBySwiftCode("INGDDEFFXXX")).isPresent();
+    }
+
+    @Test
+    void ibanLookupWithUnknownBankStillReturnsValidIban() throws Exception {
+        Mockito.when(directoryLookupClient.lookupIbanApiNinjas("DE33370400449999999999"))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/v1/iban/DE33370400449999999999")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.valid").value(true))
+                .andExpect(jsonPath("$.data.bank_code").value("37040044"))
+                // non_null serialization: an unknown bank is omitted from the payload.
+                .andExpect(jsonPath("$.data.bank").doesNotExist());
+    }
+
+    @Test
+    void ibanLookupRejectsInvalidFormat() throws Exception {
+        mockMvc.perform(get("/v1/iban/12345")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("INVALID_IBAN"));
     }
 
     // ── Typed identifiers ───────────────────────────────────────────────────
@@ -669,6 +740,14 @@ class ApiContractTest {
         row.setCity(city);
         row.setCountryCode(countryCode);
         swiftDirectoryRepository.save(row);
+    }
+
+    private void saveIbanBankCodeMap(String countryCode, String bankCode, String swiftCode) {
+        IbanBankCodeMap row = new IbanBankCodeMap();
+        row.setCountryCode(countryCode);
+        row.setBankCode(bankCode);
+        row.setSwiftCode(swiftCode);
+        ibanBankCodeMapRepository.save(row);
     }
 
     private void saveRoutingDirectoryRow(String routingNumber, String bankName, String city, String state) {

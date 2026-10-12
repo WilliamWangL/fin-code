@@ -206,6 +206,50 @@ public class BankDirectoryLookupClient {
         return Optional.empty();
     }
 
+    /**
+     * api-ninjas.com /v1/iban backing GET /v1/iban/{iban}; skipped while no API
+     * key is configured. Returns the provider payload so the enrichment
+     * service can persist both the bank-code → SWIFT map and the SWIFT
+     * directory row. A provider-side "invalid" verdict is carried in
+     * {@link IbanEnrichment#valid} — it never overrides the local checks.
+     */
+    public Optional<IbanEnrichment> lookupIbanApiNinjas(String iban) {
+        if (!properties.isApiNinjasConfigured()) {
+            return Optional.empty();
+        }
+        try {
+            JsonNode node = apiNinjasClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v1/iban")
+                            .queryParam("iban", iban)
+                            .build())
+                    .header("X-Api-Key", properties.getApiNinjasKey())
+                    .retrieve()
+                    .body(JsonNode.class);
+            if (node != null && node.hasNonNull("iban")) {
+                return Optional.of(new IbanEnrichment(
+                        text(node, "iban"),
+                        node.path("valid").asBoolean(false),
+                        text(node, "country"),
+                        text(node, "bank_code"),
+                        text(node, "swift_code"),
+                        text(node, "bank_name"),
+                        text(node, "bank_address"),
+                        text(node, "account_number")));
+            }
+        } catch (RestClientResponseException exception) {
+            log.warn("api-ninjas IBAN lookup rejected {}: status={}", iban, exception.getStatusCode().value());
+        } catch (ResourceAccessException exception) {
+            log.warn("api-ninjas IBAN lookup is unreachable for {}: {}", iban, exception.getMessage());
+        }
+        return Optional.empty();
+    }
+
+    /** The /v1/iban provider payload, kept provider-shaped for the enrichment service. */
+    public record IbanEnrichment(String iban, boolean valid, String country, String bankCode,
+                                 String swiftCode, String bankName, String bankAddress, String accountNumber) {
+    }
+
     /** The provider returns the card categories as an array of plain strings. */
     private static String categories(JsonNode array) {
         if (array == null || !array.isArray() || array.isEmpty()) {
