@@ -155,12 +155,19 @@ class ApiContractTest {
         branch.setState("Beijing");
         branch = branchRepository.save(branch);
 
+        BankBranch bsbBranch = new BankBranch();
+        bsbBranch.setInstitutionId(commbank.getId());
+        bsbBranch.setBranchName("48 Martin Place Sydney");
+        bsbBranch.setCity("Sydney");
+        bsbBranch.setState("NSW");
+        bsbBranch = branchRepository.save(bsbBranch);
+
         saveIdentifier(icbc.getId(), branch.getId(), IdentifierType.SWIFT, "ICBKCNBJ", cn);
         saveIdentifier(icbc.getId(), null, IdentifierType.CNAPS, "102100099996", cn);
         saveIdentifier(deutsche.getId(), null, IdentifierType.SWIFT, "DEUTDEFF", de);
         saveIdentifier(jpmorgan.getId(), null, IdentifierType.ABA_ROUTING, "021000021", us);
         saveIdentifier(barclays.getId(), null, IdentifierType.SORT_CODE, "200000", gb);
-        saveIdentifier(commbank.getId(), null, IdentifierType.BSB, "062001", au);
+        saveIdentifier(commbank.getId(), bsbBranch.getId(), IdentifierType.BSB, "062001", au);
         saveIdentifier(sbi.getId(), null, IdentifierType.IFSC, "SBIN0001234", india);
 
         saveSwiftDirectoryRow("ICBKCNBJ", "Industrial and Commercial Bank of China", "Beijing", "CN");
@@ -540,7 +547,10 @@ class ApiContractTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.bsb").value("062001"))
                 .andExpect(jsonPath("$.data.formatted").value("062-001"))
-                .andExpect(jsonPath("$.data.bank.short_name").value("CommBank"));
+                .andExpect(jsonPath("$.data.bank.short_name").value("CommBank"))
+                .andExpect(jsonPath("$.data.branch").value("48 Martin Place Sydney"))
+                .andExpect(jsonPath("$.data.city").value("Sydney"))
+                .andExpect(jsonPath("$.data.state").value("NSW"));
     }
 
     @Test
