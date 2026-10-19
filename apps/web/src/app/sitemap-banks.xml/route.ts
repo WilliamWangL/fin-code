@@ -12,9 +12,14 @@ export function GET() {
       .map((identifier) => sourceById[identifier.sourceId]?.retrievedAt)
       .filter((date): date is string => date !== undefined)
       .sort();
+    // Pipeline-imported records have no identifiers yet; date them with the
+    // BSB dataset retrieval instead of omitting lastmod.
+    const snapshotDate = institution.branchSnapshotKey
+      ? sourceById["src-auspaynet"]?.retrievedAt
+      : undefined;
     return {
       path: `/banks/${institution.slug}`,
-      lastmod: dates.at(-1),
+      lastmod: dates.at(-1) ?? snapshotDate,
       changefreq: "monthly" as const,
       priority: 0.8,
     };

@@ -22,7 +22,11 @@ export type IdentifierType =
 
 export type SourceType = "OFFICIAL" | "PUBLIC" | "BANK" | "COMMUNITY";
 
-export type InstitutionType = "BANK" | "CENTRAL_BANK";
+export type InstitutionType =
+  | "BANK"
+  | "CENTRAL_BANK"
+  | "CREDIT_UNION"
+  | "PAYMENT_INSTITUTION";
 
 export interface DataSource {
   id: string;
@@ -66,6 +70,14 @@ export interface Institution {
   website: string;
   identifiers: Identifier[];
   branches: Branch[];
+  /**
+   * Key of the lazily-loaded branch snapshot under
+   * `/data/branches/<key>.json` for pipeline-imported records. When set, the
+   * branch explorer fetches the full branch list client-side.
+   */
+  branchSnapshotKey?: string;
+  /** Number of rows in the branch snapshot (shown before it loads). */
+  branchSnapshotCount?: number;
 }
 
 export interface Country {

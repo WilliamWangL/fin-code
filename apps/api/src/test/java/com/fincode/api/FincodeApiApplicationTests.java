@@ -53,11 +53,14 @@ class FincodeApiApplicationTests {
                 "bank_swift_code_directory",
                 "bank_routing_directory",
                 "bank_bin_directory",
-                "iban_bank_code_map");
+                "iban_bank_code_map",
+                "institution_alias",
+                "import_batch",
+                "merge_review");
 
         List<String> appliedMigrations = jdbcTemplate.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = TRUE ORDER BY installed_rank",
                 String.class);
-        assertThat(appliedMigrations).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14");
+        assertThat(appliedMigrations).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16");
     }
 }

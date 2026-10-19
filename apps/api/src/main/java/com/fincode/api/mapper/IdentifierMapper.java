@@ -165,6 +165,7 @@ public final class IdentifierMapper {
                         com.fincode.api.domain.enums.IdentifierType.BSB,
                         resolved.identifier().getIdentifierValue()),
                 toBankSummary(resolved.institution(), resolved.country()),
+                branchName(resolved.branch()),
                 branchCity(resolved.branch()),
                 branchState(resolved.branch()),
                 resolved.identifier().getStatus().name(),

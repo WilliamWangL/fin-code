@@ -39,6 +39,15 @@ import {
 } from "@/lib/identifiers";
 import { alternatesFor, siteConfig } from "@/lib/site";
 
+/** Bare hostname for display; null when the record has no usable website. */
+function hostnameOf(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
 function formatCheckFor(type: string, value: string) {
   switch (type) {
     case "SWIFT":
@@ -243,22 +252,24 @@ export async function IdentifierDetail({ locale, config, entry }: IdentifierDeta
                   </dd>
                 </div>
               )}
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {common("website")}
-                </dt>
-                <dd className="mt-0.5">
-                  <a
-                    href={institution.website}
-                    target="_blank"
-                    rel="noopener noreferrer nofollow"
-                    className="inline-flex items-center gap-1 text-primary hover:underline"
-                  >
-                    {new URL(institution.website).hostname.replace("www.", "")}
-                    <ExternalLink className="h-3 w-3" aria-hidden />
-                  </a>
-                </dd>
-              </div>
+              {hostnameOf(institution.website) && (
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {common("website")}
+                  </dt>
+                  <dd className="mt-0.5">
+                    <a
+                      href={institution.website}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="inline-flex items-center gap-1 text-primary hover:underline"
+                    >
+                      {hostnameOf(institution.website)}
+                      <ExternalLink className="h-3 w-3" aria-hidden />
+                    </a>
+                  </dd>
+                </div>
+              )}
             </dl>
             <Link
               href={`/banks/${institution.slug}`}

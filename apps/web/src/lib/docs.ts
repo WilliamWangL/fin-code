@@ -280,6 +280,7 @@ const bsbDoc = endpointDoc({
       "country": "AU",
       "website": "https://www.commbank.com.au"
     },
+    "branch": "48 Martin Place Sydney",
     "city": "Sydney",
     "state": "NSW",
     "status": "ACTIVE",

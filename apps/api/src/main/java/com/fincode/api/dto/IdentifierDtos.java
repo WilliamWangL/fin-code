@@ -27,8 +27,8 @@ public final class IdentifierDtos {
                                String status, SourceInfo source) {
     }
 
-    public record BsbData(String bsb, String formatted, BankSummary bank, String city, String state,
-                          String status, SourceInfo source) {
+    public record BsbData(String bsb, String formatted, BankSummary bank, String branch, String city,
+                          String state, String status, SourceInfo source) {
     }
 
     public record IfscData(String ifsc, BankSummary bank, String branch, String city, String status,
