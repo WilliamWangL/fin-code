@@ -42,13 +42,21 @@ export default async function BanksPage({
       slug: institution.slug,
       nameEn: institution.nameEn,
       shortName: institution.shortName,
+      legalName: institution.legalName,
+      nameLocal: institution.nameLocal,
       countryName: country?.nameEn ?? institution.country,
       countryIso2: institution.country,
       countryHref: `/countries/${institution.country}`,
       identifiersCount: institution.identifiers.length,
-      branchesCount: institution.branches.length,
-      primaryIdentifier: primary ? formatIdentifier(primary.type, primary.value) : "—",
-      primaryIdentifierHref: primary ? hrefForIdentifier(primary.type, primary.value) : "/banks",
+      // Snapshot-backed institutions only carry the head office in
+      // `branches`; the full count comes from the exported index.
+      branchesCount: institution.branchSnapshotCount ?? institution.branches.length,
+      primaryIdentifier: primary
+        ? formatIdentifier(primary.type, primary.value)
+        : undefined,
+      primaryIdentifierHref: primary
+        ? hrefForIdentifier(primary.type, primary.value)
+        : undefined,
     };
   });
 
@@ -76,7 +84,7 @@ export default async function BanksPage({
           {t("resultCount", { count: rows.length })}
         </h2>
         <div className="mt-6">
-          <BankDirectory rows={rows} />
+          <BankDirectory rows={rows} countries={countries} />
         </div>
       </section>
 

@@ -53,9 +53,25 @@ public class FinancialInstitution {
     @Column(length = 300)
     private String website;
 
+    /** Site-facing URL slug, assigned once by the import pipeline and stable across exports. */
+    @Column(length = 140)
+    private String slug;
+
+    /** Lowercased, suffix-stripped name maintained by the import pipeline for normalized search. */
+    @Column(name = "name_norm", length = 200)
+    private String nameNorm;
+
+    /** GLEIF LEI when known; the primary alignment key for global entity resolution. */
+    @Column(length = 20)
+    private String lei;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private EntityStatus status = EntityStatus.ACTIVE;
+
+    /** Soft merge: when set, this row is folded into the referenced (surviving) institution. */
+    @Column(name = "merged_into")
+    private Long mergedInto;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

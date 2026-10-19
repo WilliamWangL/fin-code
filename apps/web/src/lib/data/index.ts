@@ -1,4 +1,4 @@
-import { institutions, institutionBySlug } from "./banks";
+import { directory } from "./au-directory";
 import { countries, countryByIso2 } from "./countries";
 import { ibanFormats, ibanFormatByCountry } from "./iban-formats";
 import { sourceById, dataSources } from "./sources";
@@ -9,6 +9,8 @@ import type {
   Institution,
 } from "./types";
 import { detectIdentifierType, normalizeIdentifier } from "@/lib/identifiers";
+
+const { institutions, institutionBySlug } = directory;
 
 export interface IdentifierEntry {
   identifier: Identifier;

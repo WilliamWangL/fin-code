@@ -32,6 +32,14 @@ public class BankRoutingDirectory {
     @Column(name = "routing_number", nullable = false, length = 20)
     private String routingNumber;
 
+    /** Owning institution once entity resolution links the row; enrichment-created rows stay null. */
+    @Column(name = "institution_id")
+    private Long institutionId;
+
+    /** ACTIVE / DEPRECATED lifecycle for retired routing numbers. */
+    @Column(name = "record_status", nullable = false, length = 16)
+    private String recordStatus = "ACTIVE";
+
     @Column(name = "bank_name", length = 255)
     private String bankName;
 

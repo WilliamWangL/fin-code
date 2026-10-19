@@ -48,7 +48,7 @@ export const dataSources: DataSource[] = [
     provider: "Australian Payments Network",
     url: "https://www.auspaynet.com.au",
     license: "Public directory data",
-    retrievedAt: "2026-08-15",
+    retrievedAt: "2026-10-12",
   },
   {
     id: "src-rbi-ifsc",
