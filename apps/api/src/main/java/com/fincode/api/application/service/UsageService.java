@@ -32,6 +32,7 @@ public class UsageService {
 
     /** Route templates used to normalize logged URIs (FIN-015 reports). */
     private static final List<EndpointRule> ENDPOINT_RULES = List.of(
+            new EndpointRule(Pattern.compile("^/v1/banks/by-slug/[^/]+$"), "/v1/banks/{id}"),
             new EndpointRule(Pattern.compile("^/v1/banks/search$"), "/v1/banks/search"),
             new EndpointRule(Pattern.compile("^/v1/banks/[^/]+/branches$"), "/v1/banks/{id}/branches"),
             new EndpointRule(Pattern.compile("^/v1/banks/[^/]+$"), "/v1/banks/{id}"),

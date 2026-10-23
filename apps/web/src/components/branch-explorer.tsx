@@ -28,7 +28,32 @@ export interface SnapshotBranch {
   code: string | null;
 }
 
+/** One row of the /api/directory BFF branch page (API SNAKE_CASE fields). */
+interface ApiBranchRow {
+  branch_name: string;
+  branch_name_en: string | null;
+  city: string | null;
+  state: string | null;
+  province: string | null;
+  address: string | null;
+  postal_code: string | null;
+  code: string | null;
+}
+
+function toSnapshotBranch(row: ApiBranchRow): SnapshotBranch {
+  return {
+    name: row.branch_name,
+    nameLocal: row.branch_name_en,
+    city: row.city,
+    state: row.state ?? row.province,
+    address: row.address,
+    postalCode: row.postal_code,
+    code: row.code,
+  };
+}
+
 const PAGE_SIZE = 50;
+const API_DEBOUNCE_MS = 300;
 
 /**
  * Branch lookup over the exported snapshot. The head office row is rendered
@@ -37,22 +62,43 @@ const PAGE_SIZE = 50;
  */
 export function BranchExplorer({
   snapshotKey,
+  apiSlug,
   initialBranches,
+  initialCursor,
 }: {
-  snapshotKey: string;
+  /**
+   * L2 (snapshot) mode: key of the lazily-loaded /data/branches/{key}.json
+   * asset produced at build time.
+   */
+  snapshotKey?: string;
+  /**
+   * L3 (live) mode: institution slug queried through the website's directory
+   * BFF at request time, with server-side search/city filtering and cursor
+   * pagination.
+   */
+  apiSlug?: string;
   initialBranches: SnapshotBranch[];
+  /** L3: cursor for the next live branch page. */
+  initialCursor?: string | null;
 }) {
   const t = useTranslations("banks");
   const common = useTranslations("common");
-  const [branches, setBranches] = useState<SnapshotBranch[] | null>(null);
+  const [snapshotBranches, setSnapshotBranches] = useState<SnapshotBranch[] | null>(null);
+  const [liveBranches, setLiveBranches] = useState<SnapshotBranch[]>(initialBranches);
+  const [cursor, setCursor] = useState<string | null>(initialCursor ?? null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
   const [limit, setLimit] = useState(PAGE_SIZE);
-  // Server-rendered head office row; kept in a ref so the fetch effect only
-  // depends on the snapshot key (the prop is a fresh array on every render).
+  // Server-rendered rows; kept in a ref so the fetch effect only depends on
+  // the snapshot key (the prop is a fresh array on every render).
   const initialRef = useRef(initialBranches);
 
+  // ── L2 snapshot mode: one lazy fetch of the full static asset.
   useEffect(() => {
+    if (!snapshotKey) return;
     let cancelled = false;
     fetch(`/data/branches/${snapshotKey}.json`)
       .then((response) => {
@@ -60,20 +106,82 @@ export function BranchExplorer({
         return response.json();
       })
       .then((data: { branches?: SnapshotBranch[] }) => {
-        if (!cancelled) setBranches(data.branches ?? []);
+        if (!cancelled) setSnapshotBranches(data.branches ?? []);
       })
       .catch(() => {
         // Keep the server-rendered head office row on failure.
-        if (!cancelled) setBranches(initialRef.current);
+        if (!cancelled) setSnapshotBranches(initialRef.current);
       });
     return () => {
       cancelled = true;
     };
   }, [snapshotKey]);
 
+  // ── L3 live mode: every search/city change refetches page one through the
+  // BFF (the API filters by name/city server-side).
+  useEffect(() => {
+    if (!apiSlug) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      setError(false);
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      const trimmed = query.trim();
+      if (trimmed) params.set("q", trimmed);
+      if (city) params.set("city", city);
+      fetch(`/api/directory/banks/${encodeURIComponent(apiSlug)}/branches?${params}`)
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        })
+        .then((payload: { data?: ApiBranchRow[]; meta?: { next_cursor?: string | null } }) => {
+          if (cancelled) return;
+          setLiveBranches((payload.data ?? []).map(toSnapshotBranch));
+          setCursor(payload.meta?.next_cursor ?? null);
+          setLimit(PAGE_SIZE);
+        })
+        .catch(() => {
+          if (!cancelled) setError(true);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, API_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [apiSlug, query, city, retryCount]);
+
+  const loadMore = () => {
+    if (!apiSlug || !cursor || loading) return;
+    setLoading(true);
+    setError(false);
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), cursor });
+    const trimmed = query.trim();
+    if (trimmed) params.set("q", trimmed);
+    if (city) params.set("city", city);
+    fetch(`/api/directory/banks/${encodeURIComponent(apiSlug)}/branches?${params}`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .then((payload: { data?: ApiBranchRow[]; meta?: { next_cursor?: string | null } }) => {
+        setLiveBranches((current) => [
+          ...current,
+          ...(payload.data ?? []).map(toSnapshotBranch),
+        ]);
+        setCursor(payload.meta?.next_cursor ?? null);
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  };
+
+  const branches = apiSlug ? liveBranches : (snapshotBranches ?? initialRef.current);
+
   const cities = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const branch of branches ?? []) {
+    for (const branch of branches) {
       if (branch.city) counts.set(branch.city, (counts.get(branch.city) ?? 0) + 1);
     }
     return [...counts.entries()].sort(
@@ -82,7 +190,10 @@ export function BranchExplorer({
   }, [branches]);
 
   const filtered = useMemo(() => {
-    const source = branches ?? initialBranches;
+    // Live pages arrive pre-filtered from the API; only snapshot rows are
+    // filtered client-side.
+    if (apiSlug) return branches;
+    const source = snapshotBranches ?? initialBranches;
     const tokens = normalizeQuery(query).split(" ").filter(Boolean);
     return source.filter((branch) => {
       if (city && branch.city !== city) return false;
@@ -92,13 +203,14 @@ export function BranchExplorer({
       );
       return tokens.every((token) => haystack.includes(token));
     });
-  }, [branches, initialBranches, query, city]);
+  }, [apiSlug, branches, snapshotBranches, initialBranches, query, city]);
 
   useEffect(() => {
     setLimit(PAGE_SIZE);
   }, [query, city]);
 
-  const visible = filtered.slice(0, limit);
+  const visible = apiSlug ? filtered : filtered.slice(0, limit);
+  const hasMore = apiSlug ? cursor !== null : visible.length < filtered.length;
 
   return (
     <div className="space-y-4">
@@ -131,13 +243,29 @@ export function BranchExplorer({
           ))}
         </select>
         <p className="text-sm text-muted-foreground" aria-live="polite">
-          {branches
-            ? t("branchesShown", { shown: visible.length, total: filtered.length })
-            : t("loadingBranches")}
+          {apiSlug
+            ? loading && branches.length === 0
+              ? t("loadingBranches")
+              : t("branchesLoaded", { count: branches.length })
+            : snapshotBranches
+              ? t("branchesShown", { shown: visible.length, total: filtered.length })
+              : t("loadingBranches")}
         </p>
       </div>
 
-      {visible.length > 0 ? (
+      {error && branches.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center">
+          <p className="text-sm text-muted-foreground">{t("apiError")}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => setRetryCount((count) => count + 1)}
+          >
+            {t("retry")}
+          </Button>
+        </div>
+      ) : visible.length > 0 ? (
         <>
           <Table>
             <TableHeader>
@@ -146,7 +274,7 @@ export function BranchExplorer({
                 <TableHead>{common("city")}</TableHead>
                 <TableHead>{t("stateColumn")}</TableHead>
                 <TableHead>{t("postalCodeColumn")}</TableHead>
-                <TableHead>{t("bsbColumn")}</TableHead>
+                <TableHead>{t("codeColumn")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -183,16 +311,26 @@ export function BranchExplorer({
             </TableBody>
           </Table>
 
-          {visible.length < filtered.length ? (
+          {hasMore ? (
             <div className="flex justify-center">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setLimit((current) => current + PAGE_SIZE)}
+                disabled={loading}
+                onClick={() => {
+                  if (apiSlug) {
+                    loadMore();
+                  } else {
+                    setLimit((current) => current + PAGE_SIZE);
+                  }
+                }}
               >
-                {t("loadMore")}
+                {loading ? t("loadingBranches") : t("loadMore")}
               </Button>
             </div>
+          ) : null}
+          {error && branches.length > 0 ? (
+            <p className="text-center text-sm text-muted-foreground">{t("apiError")}</p>
           ) : null}
         </>
       ) : (

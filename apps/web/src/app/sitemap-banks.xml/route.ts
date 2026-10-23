@@ -18,7 +18,9 @@ export function GET() {
       ? sourceById["src-auspaynet"]?.retrievedAt
       : undefined;
     return {
-      path: `/banks/${institution.slug}`,
+      // Sitemap spec requires URLs to be escaped; CJK slugs must be
+      // percent-encoded in <loc>.
+      path: `/banks/${encodeURIComponent(institution.slug)}`,
       lastmod: dates.at(-1) ?? snapshotDate,
       changefreq: "monthly" as const,
       priority: 0.8,

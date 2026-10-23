@@ -36,6 +36,10 @@ export interface BankCountryOption {
 /** Fixed locale so SSR and client hydration agree on digit grouping. */
 const digits = new Intl.NumberFormat("en-US");
 
+/** DOM guard: render at most this many filtered rows; the count line and the
+ * truncation hint communicate the true match total. */
+const MAX_MATCH_ROWS = 100;
+
 function Highlight({ text, query }: { text: string; query: string }) {
   const segments = matchSegments(text, query);
   if (!segments) return <>{text}</>;
@@ -166,7 +170,7 @@ function DirectoryFallback({ rows }: { rows: BankRow[] }) {
       <div className="flex items-center justify-between gap-3">
         <div className="h-10 w-full rounded-lg border border-input bg-card sm:max-w-md" />
         <p className="hidden text-sm text-muted-foreground sm:block">
-          {banks("resultCount", { count: rows.length })}
+          {banks("topByCountry")}
         </p>
       </div>
       <DirectoryTable rows={rows} query="" />
@@ -178,9 +182,16 @@ function DirectoryFallback({ rows }: { rows: BankRow[] }) {
 function BankDirectoryLive({
   rows,
   countries,
+  countryCounts,
+  searchPool,
 }: {
   rows: BankRow[];
   countries: BankCountryOption[];
+  /** Full-directory per-country totals; defaults to counting `rows`. */
+  countryCounts?: Map<string, number>;
+  /** Full-directory pool that searches and country filters run against;
+   * defaults to `rows` (the spotlight list) when not provided. */
+  searchPool?: BankRow[];
 }) {
   const t = useTranslations("banks");
   const searchParams = useSearchParams();
@@ -221,20 +232,37 @@ function BankDirectoryLive({
   }, [urlQuery, urlCountry]);
 
   const filtered = useMemo(() => {
+    const pool = searchPool ?? rows;
     if (query.trim()) {
-      const scored = searchBanks(rows, query, country || undefined);
+      const scored = searchBanks(pool, query, country || undefined);
       return scored ? scored.map((item) => item.doc) : [];
     }
-    return country ? rows.filter((row) => row.countryIso2 === country) : rows;
-  }, [rows, query, country]);
-
-  const countryCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const row of rows) {
-      counts.set(row.countryIso2, (counts.get(row.countryIso2) ?? 0) + 1);
+    if (country) {
+      // Biggest institutions first, in line with the spotlight ordering.
+      return [...pool]
+        .filter((row) => row.countryIso2 === country)
+        .sort((a, b) => b.branchesCount - a.branchesCount);
     }
-    return counts;
-  }, [rows]);
+    return rows;
+  }, [rows, searchPool, query, country]);
+
+  const visible =
+    filtered.length > MAX_MATCH_ROWS ? filtered.slice(0, MAX_MATCH_ROWS) : filtered;
+  const truncated = filtered.length > visible.length;
+
+  const counts = useMemo(() => {
+    if (countryCounts) return countryCounts;
+    const computed = new Map<string, number>();
+    for (const row of rows) {
+      computed.set(row.countryIso2, (computed.get(row.countryIso2) ?? 0) + 1);
+    }
+    return computed;
+  }, [rows, countryCounts]);
+
+  const totalCount = useMemo(
+    () => (countryCounts ? Array.from(countryCounts.values()).reduce((sum, n) => sum + n, 0) : rows.length),
+    [rows.length, countryCounts],
+  );
 
   const filtering = query.trim().length > 0 || country.length > 0;
   const clearFilters = () => {
@@ -271,7 +299,7 @@ function BankDirectoryLive({
         </div>
         {filtering ? (
           <p className="text-sm text-muted-foreground" aria-live="polite">
-            {t("matchedCount", { count: filtered.length, total: rows.length })}
+            {t("matchedCount", { count: filtered.length, total: searchPool?.length ?? rows.length })}
           </p>
         ) : null}
       </div>
@@ -279,7 +307,7 @@ function BankDirectoryLive({
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => setCountry("")} className={chipClass(!country)}>
           {t("filterByCountry")}
-          <span className="text-xs opacity-70">{digits.format(rows.length)}</span>
+          <span className="text-xs opacity-70">{digits.format(totalCount)}</span>
         </button>
         {countries.map((option) => (
           <button
@@ -290,14 +318,21 @@ function BankDirectoryLive({
           >
             {option.name}
             <span className="text-xs opacity-70">
-              {digits.format(countryCounts.get(option.iso2) ?? 0)}
+              {digits.format(counts.get(option.iso2) ?? 0)}
             </span>
           </button>
         ))}
       </div>
 
-      {filtered.length > 0 ? (
-        <DirectoryTable rows={filtered} query={query} />
+      {visible.length > 0 ? (
+        <>
+          <DirectoryTable rows={visible} query={query} />
+          {truncated ? (
+            <p className="text-sm text-muted-foreground" aria-live="polite">
+              {t("searchTruncated", { count: visible.length, total: filtered.length })}
+            </p>
+          ) : null}
+        </>
       ) : (
         <div className="rounded-xl border border-dashed border-border bg-card px-6 py-14 text-center">
           <p className="text-sm font-medium">{t("noResultsTitle")}</p>
@@ -323,13 +358,22 @@ function BankDirectoryLive({
 export function BankDirectory({
   rows,
   countries,
+  countryCounts,
+  searchPool,
 }: {
   rows: BankRow[];
   countries: BankCountryOption[];
+  countryCounts?: Map<string, number>;
+  searchPool?: BankRow[];
 }) {
   return (
     <Suspense fallback={<DirectoryFallback rows={rows} />}>
-      <BankDirectoryLive rows={rows} countries={countries} />
+      <BankDirectoryLive
+        rows={rows}
+        countries={countries}
+        countryCounts={countryCounts}
+        searchPool={searchPool}
+      />
     </Suspense>
   );
 }

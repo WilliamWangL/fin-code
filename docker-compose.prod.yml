@@ -75,6 +75,10 @@ services:
     environment:
       NODE_ENV: production
       TZ: UTC
+      # Directory BFF: server-side /v1/banks lookups (by-slug + branches)
+      # behind /api/directory/...; the key never reaches the browser.
+      DIRECTORY_SERVER_API_KEY: ${DIRECTORY_SERVER_API_KEY:-}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8080}
     depends_on:
       api:
         condition: service_healthy

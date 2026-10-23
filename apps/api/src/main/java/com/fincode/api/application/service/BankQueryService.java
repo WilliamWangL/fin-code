@@ -2,6 +2,7 @@ package com.fincode.api.application.service;
 
 import com.fincode.api.config.ResponseCache;
 import com.fincode.api.domain.enums.EntityStatus;
+import com.fincode.api.domain.enums.IdentifierType;
 import com.fincode.api.domain.model.BankBranch;
 import com.fincode.api.domain.model.BankIdentifier;
 import com.fincode.api.domain.model.Country;
@@ -19,6 +20,7 @@ import com.fincode.api.exception.ErrorCode;
 import com.fincode.api.mapper.IdentifierMapper;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -42,6 +44,10 @@ public class BankQueryService {
     private static final String PUBLIC_ID_PREFIX = "inst_";
     private static final Duration DETAIL_CACHE_TTL = Duration.ofMinutes(5);
     private static final String BANK_CACHE_PREFIX = "cache:bank:";
+    /** Branch-level identifier types that qualify as a branch's national code. */
+    private static final List<IdentifierType> BRANCH_CODE_TYPES = List.of(
+            IdentifierType.BSB, IdentifierType.CNAPS, IdentifierType.IFSC,
+            IdentifierType.SORT_CODE, IdentifierType.TRANSIT_NUMBER, IdentifierType.CLEARING_CODE);
 
     private final FinancialInstitutionRepository institutionRepository;
     private final BankIdentifierRepository identifierRepository;
@@ -110,12 +116,37 @@ public class BankQueryService {
         FinancialInstitution institution = institutionRepository.findById(parsePublicId(publicId))
                 .filter(row -> row.getStatus() == EntityStatus.ACTIVE)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        BankDetailData data = buildDetail(institution);
+        responseCache.put(cacheKey, data, DETAIL_CACHE_TTL);
+        return data;
+    }
+
+    /** Website directory lookup by URL slug (V17); serves the /banks/[slug] pages via the web BFF. */
+    public BankDetailData getBySlug(String slug) {
+        if (slug == null || slug.isBlank()) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
+        String trimmed = slug.trim();
+        String cacheKey = BANK_CACHE_PREFIX + "slug:" + trimmed;
+        BankDetailData cached = responseCache.get(cacheKey, BankDetailData.class);
+        if (cached != null) {
+            return cached;
+        }
+        FinancialInstitution institution = institutionRepository.findBySlugAndStatus(trimmed, EntityStatus.ACTIVE)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        BankDetailData data = buildDetail(institution);
+        responseCache.put(cacheKey, data, DETAIL_CACHE_TTL);
+        return data;
+    }
+
+    private BankDetailData buildDetail(FinancialInstitution institution) {
         Map<Long, String> countryCodes = countryCodes(List.of(institution));
         List<IdentifierRef> identifiers = identifierRepository.findByInstitutionIdInOrderByIdAsc(List.of(institution.getId()))
                 .stream()
                 .map(identifier -> new IdentifierRef(identifier.getIdentifierType().name(), identifier.getIdentifierValue()))
                 .toList();
-        BankDetailData data = new BankDetailData(
+        long branchCount = branchRepository.countByInstitutionIdAndStatus(institution.getId(), EntityStatus.ACTIVE);
+        return new BankDetailData(
                 IdentifierMapper.publicBankId(institution.getId()),
                 institution.getNameEn(),
                 institution.getNameLocal(),
@@ -123,20 +154,60 @@ public class BankQueryService {
                 countryCodes.get(institution.getCountryId()),
                 institution.getWebsite(),
                 institution.getStatus().name(),
-                identifiers);
-        responseCache.put(cacheKey, data, DETAIL_CACHE_TTL);
-        return data;
+                identifiers,
+                branchCount);
     }
 
-    public Paged<List<BranchData>> branches(String publicId, String cursor, Integer limit) {
+    public Paged<List<BranchData>> branches(String publicId, String cursor, Integer limit, String q, String city) {
         FinancialInstitution institution = institutionRepository.findById(parsePublicId(publicId))
                 .filter(row -> row.getStatus() == EntityStatus.ACTIVE)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         int pageSize = resolveLimit(limit);
         long afterId = parseCursor(cursor);
-        List<BankBranch> rows = branchRepository.findByInstitutionIdAndStatusAndIdGreaterThanOrderByIdAsc(
-                institution.getId(), EntityStatus.ACTIVE, afterId, PageRequest.of(0, pageSize + 1));
-        return paginate(rows, pageSize, page -> page.stream().map(IdentifierMapper::toBranchData).toList(), BankBranch::getId);
+        String query = (q == null || q.isBlank()) ? null : q.trim();
+        String cityFilter = (city == null || city.isBlank()) ? null : city.trim();
+        List<BankBranch> rows;
+        if (query == null && cityFilter == null) {
+            rows = branchRepository.findByInstitutionIdAndStatusAndIdGreaterThanOrderByIdAsc(
+                    institution.getId(), EntityStatus.ACTIVE, afterId, PageRequest.of(0, pageSize + 1));
+        } else {
+            rows = branchRepository.searchBranches(
+                    institution.getId(), EntityStatus.ACTIVE, query, cityFilter, afterId, PageRequest.of(0, pageSize + 1));
+        }
+        Map<Long, String> codes = branchCodes(rows);
+        return paginate(rows, pageSize,
+                page -> page.stream().map(branch -> IdentifierMapper.toBranchData(branch, codes.get(branch.getId()))).toList(),
+                BankBranch::getId);
+    }
+
+    /**
+     * National branch code per branch id, picked from branch-level identifiers
+     * (BSB/CNAPS/...) - SWIFT and institution-level rows are ignored.
+     */
+    private Map<Long, String> branchCodes(List<BankBranch> rows) {
+        List<Long> branchIds = rows.stream().map(BankBranch::getId).toList();
+        if (branchIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, List<BankIdentifier>> byBranch = identifierRepository
+                .findByBranchIdInOrderByIdAsc(branchIds).stream()
+                .filter(identifier -> identifier.getBranchId() != null)
+                .collect(Collectors.groupingBy(BankIdentifier::getBranchId));
+        Map<Long, String> codes = new HashMap<>();
+        byBranch.forEach((branchId, identifiers) -> {
+            for (IdentifierType type : BRANCH_CODE_TYPES) {
+                String value = identifiers.stream()
+                        .filter(identifier -> identifier.getIdentifierType() == type)
+                        .map(BankIdentifier::getIdentifierValue)
+                        .findFirst()
+                        .orElse(null);
+                if (value != null) {
+                    codes.put(branchId, value);
+                    break;
+                }
+            }
+        });
+        return codes;
     }
 
     private List<BankListItem> toListItems(List<FinancialInstitution> institutions) {

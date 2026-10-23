@@ -1,4 +1,4 @@
-import { directory } from "./au-directory";
+import { directory } from "./directory";
 import { countries, countryByIso2 } from "./countries";
 import { ibanFormats, ibanFormatByCountry } from "./iban-formats";
 import { sourceById, dataSources } from "./sources";
