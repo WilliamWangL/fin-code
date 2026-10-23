@@ -15,6 +15,9 @@ name: Deploy
 #   PROD_MYSQL_PASSWORD   host mysqld `fincode`@`%` account password (the
 #                         database itself was created by the admin once; the
 #                         container never needs the mysql root password)
+#   PROD_DIRECTORY_SERVER_API_KEY   BUSINESS-plan API key the website BFF uses
+#                         for server-side bank directory lookups
+#                         (/v1/banks/by-slug + branches)
 # Optional secrets: PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET / PAYPAL_WEBHOOK_ID /
 #   PAYPAL_PLAN_DEVELOPER / PAYPAL_PLAN_STARTUP / PAYPAL_PLAN_BUSINESS
 #   PAYPAL_ENV (sandbox|live, default live) - environment the API talks to.
@@ -152,6 +155,8 @@ jobs:
             MYSQL_PASSWORD=${{ secrets.PROD_MYSQL_PASSWORD }}
             JWT_SECRET=${{ secrets.PROD_JWT_SECRET }}
             CORS_ALLOWED_ORIGINS=${{ env.SITE_URL }}
+            DIRECTORY_SERVER_API_KEY=${{ secrets.PROD_DIRECTORY_SERVER_API_KEY }}
+            API_INTERNAL_URL=http://api:8080
             API_NINJAS_KEY=${{ secrets.API_NINJAS_KEY || '' }}
             PAYPAL_ENV=${{ secrets.PAYPAL_ENV || 'live' }}
             PAYPAL_CLIENT_ID=${{ env.PUBLIC_PAYPAL_CLIENT_ID }}

@@ -78,6 +78,24 @@ export interface Institution {
   branchSnapshotKey?: string;
   /** Number of rows in the branch snapshot (shown before it loads). */
   branchSnapshotCount?: number;
+  /**
+   * Set when a directory (database) record backs this institution but no
+   * build-time branch snapshot exists (outside the per-country top 3). The
+   * detail page then hydrates live data (branch count, identifiers, branch
+   * pages) from the backend through the website's directory BFF.
+   */
+  liveKey?: string;
+  /** Active branch rows in the database; authoritative when liveKey is set. */
+  liveBranchCount?: number;
+}
+
+/** Branch count shown across the directory, with snapshot data winning. */
+export function branchCountOf(institution: Institution): number {
+  return (
+    institution.branchSnapshotCount ??
+    institution.liveBranchCount ??
+    institution.branches.length
+  );
 }
 
 export interface Country {

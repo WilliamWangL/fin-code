@@ -358,6 +358,7 @@
     "searchPlaceholder": "Search by bank name, SWIFT/BIC, routing or BSB code…",
     "clearSearch": "Clear search",
     "matchedCount": "{count} of {total} institutions",
+    "searchTruncated": "Showing the first {count} of {total} matches - refine your search to narrow it down.",
     "filterByCountry": "All countries",
     "noResultsTitle": "No banks match your filters",
     "noResultsBody": "Try a different name, or search by SWIFT/BIC, routing number, sort code or BSB.",
@@ -372,7 +373,12 @@
     "branchNoResults": "No branches match your search.",
     "stateColumn": "State",
     "postalCodeColumn": "Postcode",
-    "bsbColumn": "BSB"
+    "bsbColumn": "BSB",
+    "codeColumn": "Code",
+    "topByCountry": "Top banks in each country",
+    "branchesLoaded": "Loaded {count} branches",
+    "apiError": "Live branch data is temporarily unavailable.",
+    "retry": "Retry"
   },
   "countries": {
     "metaTitle": "Country Directory — Banking Identifiers Worldwide",

@@ -21,17 +21,41 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Link } from "@/i18n/navigation";
-import { countryByIso2, formatIdentifier, hrefForIdentifier, institutions } from "@/lib/data";
-import type { Identifier, InstitutionType } from "@/lib/data/types";
+import {
+  countryByIso2,
+  formatIdentifier,
+  hrefForIdentifier,
+  institutions,
+} from "@/lib/data";
+import {
+  branchCountOf,
+  type Identifier,
+  type Institution,
+  type InstitutionType,
+} from "@/lib/data/types";
 import { identifierTypeLabel } from "@/lib/directory";
+import {
+  decodeSlug,
+  fetchBankBranches,
+  fetchBankBySlug,
+  type ApiBranch,
+} from "@/lib/directory-api";
 import { sourceById } from "@/lib/data/sources";
 import { alternatesFor, siteConfig } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 export const revalidate = 86400;
 
+// L3 long-tail slugs are not prerendered; they render on demand and stay
+// cached for the route revalidation window (ISR).
+export const dynamicParams = true;
+
 export function generateStaticParams() {
-  return institutions.map((institution) => ({ slug: institution.slug }));
+  // L1 (static-only) records plus L2 (snapshot-backed) rows; live directory
+  // records without a branch snapshot are excluded on purpose.
+  return institutions
+    .filter((institution) => !institution.liveKey || institution.branchSnapshotKey)
+    .map((institution) => ({ slug: institution.slug }));
 }
 
 export async function generateMetadata({
@@ -39,7 +63,8 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   const t = await getTranslations({ locale, namespace: "banks" });
   const institution = institutions.find((item) => item.slug === slug);
   if (!institution) return {};
@@ -61,6 +86,19 @@ function hostnameOf(url: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** Maps an API branch row onto the explorer's snapshot-row shape. */
+function liveBranchRow(row: ApiBranch): SnapshotBranch {
+  return {
+    name: row.branch_name,
+    nameLocal: row.branch_name_en,
+    city: row.city,
+    state: row.state ?? row.province,
+    address: row.address,
+    postalCode: row.postal_code,
+    code: row.code,
+  };
 }
 
 /** Public API path that returns the record behind an identifier. */
@@ -89,23 +127,62 @@ export default async function BankDetailPage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }) {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
   setRequestLocale(locale);
   const institution = institutions.find((item) => item.slug === slug);
-  if (!institution) {
-    notFound();
+  // L3 = live directory record without a build-time branch snapshot. The
+  // page still renders when the API is unreachable (directory index data),
+  // but a slug unknown to both the index and the API is a genuine 404.
+  const isLive = !institution || Boolean(institution.liveKey && !institution.branchSnapshotKey);
+
+  let liveDetail: Awaited<ReturnType<typeof fetchBankBySlug>> = null;
+  let liveInitialBranches: SnapshotBranch[] = [];
+  let liveInitialCursor: string | null = null;
+  if (isLive) {
+    liveDetail = await fetchBankBySlug(slug);
+    if (liveDetail) {
+      const page = await fetchBankBranches(liveDetail.id, { limit: 50 });
+      liveInitialBranches = (page?.branches ?? []).map(liveBranchRow);
+      liveInitialCursor = page?.nextCursor ?? null;
+    } else if (!institution) {
+      notFound();
+    }
   }
 
   const t = await getTranslations({ locale, namespace: "banks" });
   const common = await getTranslations({ locale, namespace: "common" });
   const detail = await getTranslations({ locale, namespace: "detail" });
 
-  const country = countryByIso2[institution.country];
-  const headOffice = institution.branches[0];
-  const websiteHost = hostnameOf(institution.website);
-  // Snapshot-backed institutions carry thousands of branches in the exported
-  // dataset; only the head office row lives in `branches` at build time.
-  const branchCount = institution.branchSnapshotCount ?? institution.branches.length;
+  // Directory record wins for display fields; a slug the index missed
+  // (dynamic long tail) renders straight from the API record.
+  const view: Institution = institution ?? {
+    slug,
+    legalName: liveDetail!.name_en,
+    nameEn: liveDetail!.name_en,
+    nameLocal: liveDetail!.name_local ?? undefined,
+    shortName: liveDetail!.short_name,
+    country: liveDetail!.country,
+    institutionType: "BANK",
+    website: liveDetail!.website ?? "",
+    identifiers: [],
+    branches: [],
+  };
+  const liveIdentifiers: Identifier[] | null = liveDetail
+    ? liveDetail.identifiers.map((item) => ({
+        type: item.type as Identifier["type"],
+        value: item.value,
+        // The compact API payload carries no provenance block.
+        sourceId: "",
+        verified: true,
+      }))
+    : null;
+  const identifiers = liveIdentifiers ?? view.identifiers;
+
+  const country = countryByIso2[view.country];
+  const headOffice = view.branches[0];
+  const websiteHost = hostnameOf(view.website);
+  const branchCount = liveDetail ? liveDetail.branch_count : branchCountOf(view);
 
   const typeLabels: Record<InstitutionType, string> = {
     BANK: detail("typeBank"),
@@ -113,19 +190,19 @@ export default async function BankDetailPage({
     CREDIT_UNION: detail("typeCreditUnion"),
     PAYMENT_INSTITUTION: detail("typePaymentInstitution"),
   };
-  const typeLabel = typeLabels[institution.institutionType] ?? detail("typeBank");
+  const typeLabel = typeLabels[view.institutionType] ?? detail("typeBank");
 
   const primary =
-    institution.identifiers.find((item) => item.type === "SWIFT") ??
-    institution.identifiers[0];
+    view.identifiers.find((item) => item.type === "SWIFT") ??
+    view.identifiers[0];
   const apiPath = primary
     ? apiPathFor(primary)
-    : `/banks/search?q=${encodeURIComponent(institution.nameEn)}&limit=5`;
+    : `/banks/search?q=${encodeURIComponent(view.nameEn)}&limit=5`;
   const apiSnippet = `curl -s "${siteConfig.apiBaseUrl}${apiPath}" \\\n  -H "Authorization: Bearer sk_xxx"`;
 
   // Server-rendered head office row; the explorer replaces it with the full
   // snapshot once the static asset is fetched.
-  const initialBranches: SnapshotBranch[] = institution.branches.slice(0, 1).map((branch) => ({
+  const initialBranches: SnapshotBranch[] = view.branches.slice(0, 1).map((branch) => ({
     name: branch.name,
     nameLocal: branch.nameLocal ?? null,
     city: branch.city || null,
@@ -138,20 +215,20 @@ export default async function BankDetailPage({
   const breadcrumbs: BreadcrumbItem[] = [
     { label: common("breadcrumbHome"), href: "/" },
     { label: t("title"), href: "/banks" },
-    { label: institution.shortName },
+    { label: view.shortName },
   ];
 
   // Other institutions in the same country.
   const related = institutions
-    .filter((item) => item.country === institution.country && item.slug !== institution.slug)
+    .filter((item) => item.country === view.country && item.slug !== view.slug)
     .slice(0, 6);
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <PageHeader
-        title={institution.nameEn}
+        title={view.nameEn}
         description={
-          institution.legalName !== institution.nameEn ? institution.legalName : undefined
+          view.legalName !== view.nameEn ? view.legalName : undefined
         }
         breadcrumbs={breadcrumbs}
         badge={<Badge variant="outline">{typeLabel}</Badge>}
@@ -162,7 +239,7 @@ export default async function BankDetailPage({
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>{t("overview")}</CardTitle>
-            <CardDescription>{institution.shortName}</CardDescription>
+            <CardDescription>{view.shortName}</CardDescription>
           </CardHeader>
           <CardContent>
             <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
@@ -170,14 +247,14 @@ export default async function BankDetailPage({
                 <dt className="text-xs uppercase tracking-wide text-muted-foreground">
                   {detail("legalName")}
                 </dt>
-                <dd className="mt-1 text-sm font-medium">{institution.legalName}</dd>
+                <dd className="mt-1 text-sm font-medium">{view.legalName}</dd>
               </div>
-              {institution.nameLocal && (
+              {view.nameLocal && (
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-muted-foreground">
                     {detail("localName")}
                   </dt>
-                  <dd className="mt-1 text-sm font-medium">{institution.nameLocal}</dd>
+                  <dd className="mt-1 text-sm font-medium">{view.nameLocal}</dd>
                 </div>
               )}
               <div>
@@ -186,10 +263,10 @@ export default async function BankDetailPage({
                 </dt>
                 <dd className="mt-1 text-sm font-medium">
                   <Link
-                    href={`/countries/${institution.country}`}
+                    href={`/countries/${view.country}`}
                     className="text-primary hover:underline"
                   >
-                    {country?.nameEn ?? institution.country} ({institution.country})
+                    {country?.nameEn ?? view.country} ({view.country})
                   </Link>
                 </dd>
               </div>
@@ -217,7 +294,7 @@ export default async function BankDetailPage({
                   </dt>
                   <dd className="mt-1">
                     <a
-                      href={institution.website}
+                      href={view.website}
                       target="_blank"
                       rel="noopener noreferrer nofollow"
                       className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
@@ -244,7 +321,7 @@ export default async function BankDetailPage({
                   {t("identifiersColumn")}
                 </dt>
                 <dd className="mt-0.5 font-medium">
-                  {t("identifiersCount", { count: institution.identifiers.length })}
+                  {t("identifiersCount", { count: identifiers.length })}
                 </dd>
               </div>
               <div>
@@ -274,7 +351,7 @@ export default async function BankDetailPage({
       </div>
 
       {/* ── Identifiers ───────────────────────────────────────────────── */}
-      {institution.identifiers.length > 0 && (
+      {identifiers.length > 0 && (
         <section aria-labelledby="bank-identifiers" className="mt-10">
           <h2 id="bank-identifiers" className="text-xl font-semibold tracking-tight">
             {detail("allIdentifiers")}
@@ -294,7 +371,7 @@ export default async function BankDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {institution.identifiers.map((identifier) => {
+                {identifiers.map((identifier) => {
                   const source = sourceById[identifier.sourceId];
                   const formatted = formatIdentifier(identifier.type, identifier.value);
                   return (
@@ -324,8 +401,14 @@ export default async function BankDetailPage({
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {source?.name ?? identifier.sourceId}
-                        {source ? ` · ${source.retrievedAt}` : ""}
+                        {identifier.sourceId ? (
+                          <>
+                            {source?.name ?? identifier.sourceId}
+                            {source ? ` · ${source.retrievedAt}` : ""}
+                          </>
+                        ) : (
+                          "—"
+                        )}
                       </TableCell>
                       <TableCell>
                         <CopyButton value={formatted} />
@@ -340,7 +423,7 @@ export default async function BankDetailPage({
       )}
 
       {/* ── Branches ──────────────────────────────────────────────────── */}
-      {institution.branchSnapshotKey ? (
+      {view.branchSnapshotKey ? (
         <section aria-labelledby="bank-branches" className="mt-10">
           <h2 id="bank-branches" className="text-xl font-semibold tracking-tight">
             {detail("branchInformation")}
@@ -350,12 +433,28 @@ export default async function BankDetailPage({
           </p>
           <div className="mt-4">
             <BranchExplorer
-              snapshotKey={institution.branchSnapshotKey}
+              snapshotKey={view.branchSnapshotKey}
               initialBranches={initialBranches}
             />
           </div>
         </section>
-      ) : institution.branches.length > 0 ? (
+      ) : isLive ? (
+        <section aria-labelledby="bank-branches" className="mt-10">
+          <h2 id="bank-branches" className="text-xl font-semibold tracking-tight">
+            {detail("branchInformation")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("branchesCount", { count: branchCount })}
+          </p>
+          <div className="mt-4">
+            <BranchExplorer
+              apiSlug={slug}
+              initialBranches={liveInitialBranches}
+              initialCursor={liveInitialCursor}
+            />
+          </div>
+        </section>
+      ) : view.branches.length > 0 ? (
         <section aria-labelledby="bank-branches" className="mt-10">
           <h2 id="bank-branches" className="text-xl font-semibold tracking-tight">
             {detail("branchInformation")}
@@ -370,7 +469,7 @@ export default async function BankDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {institution.branches.map((branch) => (
+                {view.branches.map((branch) => (
                   <TableRow key={branch.slug}>
                     <TableCell className="text-sm font-medium">
                       {branch.name}
@@ -473,10 +572,10 @@ export default async function BankDetailPage({
         data={{
           "@context": "https://schema.org",
           "@type": "WebPage",
-          name: institution.nameEn,
+          name: view.nameEn,
           description: t("bankMetaDescription", {
-            bank: institution.nameEn,
-            country: country?.nameEn ?? institution.country,
+            bank: view.nameEn,
+            country: country?.nameEn ?? view.country,
           }),
           inLanguage: locale,
           isPartOf: { "@type": "WebSite", name: siteConfig.name, url: siteConfig.url },
@@ -486,11 +585,11 @@ export default async function BankDetailPage({
         data={{
           "@context": "https://schema.org",
           "@type": "BankOrCreditUnion",
-          name: institution.nameEn,
-          legalName: institution.legalName,
-          ...(institution.nameLocal ? { alternateName: institution.nameLocal } : {}),
-          url: `${siteConfig.url}/${locale}/banks/${institution.slug}`,
-          ...(institution.website ? { sameAs: [institution.website] } : {}),
+          name: view.nameEn,
+          legalName: view.legalName,
+          ...(view.nameLocal ? { alternateName: view.nameLocal } : {}),
+          url: `${siteConfig.url}/${locale}/banks/${view.slug}`,
+          ...(view.website ? { sameAs: [view.website] } : {}),
           ...(country ? { areaServed: country.nameEn } : {}),
           ...(headOffice?.city
             ? {
@@ -498,11 +597,11 @@ export default async function BankDetailPage({
                   "@type": "PostalAddress",
                   ...(headOffice.address ? { streetAddress: headOffice.address } : {}),
                   addressLocality: headOffice.city,
-                  addressCountry: institution.country,
+                  addressCountry: view.country,
                 },
               }
             : {}),
-          identifier: institution.identifiers.map((identifier) => ({
+          identifier: view.identifiers.map((identifier) => ({
             "@type": "PropertyValue",
             propertyID: identifier.type,
             value: formatIdentifier(identifier.type, identifier.value),
