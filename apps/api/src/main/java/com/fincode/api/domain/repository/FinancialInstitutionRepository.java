@@ -3,6 +3,7 @@ package com.fincode.api.domain.repository;
 import com.fincode.api.domain.enums.EntityStatus;
 import com.fincode.api.domain.model.FinancialInstitution;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -11,6 +12,9 @@ import org.springframework.data.repository.query.Param;
 public interface FinancialInstitutionRepository extends JpaRepository<FinancialInstitution, Long> {
 
     List<FinancialInstitution> findByCountryId(Long countryId);
+
+    /** Website directory lookup (V17 backfill; unique across representative rows). */
+    Optional<FinancialInstitution> findBySlugAndStatus(String slug, EntityStatus status);
 
     List<FinancialInstitution> findByStatusAndIdGreaterThanOrderByIdAsc(EntityStatus status, Long id, Pageable pageable);
 

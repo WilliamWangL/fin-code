@@ -17,6 +17,8 @@ public interface BankIdentifierRepository extends JpaRepository<BankIdentifier, 
 
     List<BankIdentifier> findByBranchId(Long branchId);
 
+    List<BankIdentifier> findByBranchIdInOrderByIdAsc(Collection<Long> branchIds);
+
     List<BankIdentifier> findByInstitutionIdInOrderByIdAsc(Collection<Long> institutionIds);
 
     /** Closest candidates for lookup suggestions (spec §29). */

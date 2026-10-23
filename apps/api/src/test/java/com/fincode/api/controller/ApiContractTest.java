@@ -144,8 +144,13 @@ class ApiContractTest {
                 null, "Barclays", gb, "https://www.barclays.co.uk");
         FinancialInstitution commbank = saveInstitution("Commonwealth Bank of Australia",
                 "Commonwealth Bank of Australia", null, "CommBank", au, "https://www.commbank.com.au");
+        commbank.setSlug("commonwealth-bank");
+        institutionRepository.save(commbank);
         FinancialInstitution sbi = saveInstitution("State Bank of India", "State Bank of India",
                 null, "SBI", india, "https://www.sbi.co.in");
+
+        icbc.setSlug("icbc");
+        institutionRepository.save(icbc);
 
         BankBranch branch = new BankBranch();
         branch.setInstitutionId(icbc.getId());
@@ -161,6 +166,14 @@ class ApiContractTest {
         bsbBranch.setCity("Sydney");
         bsbBranch.setState("NSW");
         bsbBranch = branchRepository.save(bsbBranch);
+
+        BankBranch shanghaiBranch = new BankBranch();
+        shanghaiBranch.setInstitutionId(icbc.getId());
+        shanghaiBranch.setBranchName("中国工商银行上海分行");
+        shanghaiBranch.setBranchNameEn("Shanghai Branch");
+        shanghaiBranch.setCity("Shanghai");
+        shanghaiBranch.setState("Shanghai");
+        branchRepository.save(shanghaiBranch);
 
         saveIdentifier(icbc.getId(), branch.getId(), IdentifierType.SWIFT, "ICBKCNBJ", cn);
         saveIdentifier(icbc.getId(), null, IdentifierType.CNAPS, "102100099996", cn);
@@ -626,13 +639,67 @@ class ApiContractTest {
                 .andExpect(jsonPath("$.data.id").value(publicId))
                 .andExpect(jsonPath("$.data.name_en").value("Industrial and Commercial Bank of China"))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.data.identifiers", hasSize(2)));
+                .andExpect(jsonPath("$.data.identifiers", hasSize(2)))
+                .andExpect(jsonPath("$.data.branch_count").value(2));
 
         mockMvc.perform(get("/v1/banks/" + publicId + "/branches")
                         .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data", hasSize(2)))
                 .andExpect(jsonPath("$.data[0].id", startsWith("br_")))
+                .andExpect(jsonPath("$.data[0].city").value("Beijing"));
+    }
+
+    @Test
+    void bankDetailBySlug() throws Exception {
+        mockMvc.perform(get("/v1/banks/by-slug/icbc").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value("inst_" + icbcId))
+                .andExpect(jsonPath("$.data.name_en").value("Industrial and Commercial Bank of China"))
+                .andExpect(jsonPath("$.data.branch_count").value(2));
+
+        mockMvc.perform(get("/v1/banks/by-slug/no-such-bank").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void bankBranchesCarryNationalBranchCode() throws Exception {
+        String commbankBody = mockMvc.perform(get("/v1/banks/by-slug/commonwealth-bank")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        String commbankId = JsonPath.read(commbankBody, "$.data.id");
+
+        mockMvc.perform(get("/v1/banks/" + commbankId + "/branches")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].code").value("062001"));
+    }
+
+    @Test
+    void bankBranchesFilterByQueryAndCity() throws Exception {
+        String publicId = "inst_" + icbcId;
+        mockMvc.perform(get("/v1/banks/" + publicId + "/branches")
+                        .param("q", "Shanghai")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].city").value("Shanghai"));
+
+        mockMvc.perform(get("/v1/banks/" + publicId + "/branches")
+                        .param("q", "上海")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].city").value("Shanghai"));
+
+        mockMvc.perform(get("/v1/banks/" + publicId + "/branches")
+                        .param("city", "Beijing")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
                 .andExpect(jsonPath("$.data[0].city").value("Beijing"));
     }
 

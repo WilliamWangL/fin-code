@@ -194,7 +194,7 @@ public final class IdentifierMapper {
                 toSourceInfo(resolved.source()));
     }
 
-    public static BranchData toBranchData(BankBranch branch) {
+    public static BranchData toBranchData(BankBranch branch, String code) {
         return new BranchData(
                 "br_" + branch.getId(),
                 branch.getBranchName(),
@@ -204,7 +204,8 @@ public final class IdentifierMapper {
                 branch.getState(),
                 branch.getProvince(),
                 branch.getPostalCode(),
-                branch.getStatus().name());
+                branch.getStatus().name(),
+                code);
     }
 
     private static String branchCity(BankBranch branch) {

@@ -44,6 +44,11 @@ public class BankController {
         return ApiResponse.paged(page.data(), page.nextCursor());
     }
 
+    @GetMapping("/by-slug/{slug}")
+    public ApiResponse<BankDetailData> getBySlug(@PathVariable String slug) {
+        return ApiResponse.of(bankQueryService.getBySlug(slug));
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<BankDetailData> get(@PathVariable String id) {
         return ApiResponse.of(bankQueryService.get(id));
@@ -52,8 +57,10 @@ public class BankController {
     @GetMapping("/{id}/branches")
     public ApiResponse<List<BranchData>> branches(@PathVariable String id,
                                                   @RequestParam(required = false) String cursor,
-                                                  @RequestParam(required = false) Integer limit) {
-        Paged<List<BranchData>> page = bankQueryService.branches(id, cursor, limit);
+                                                  @RequestParam(required = false) Integer limit,
+                                                  @RequestParam(required = false) String q,
+                                                  @RequestParam(required = false) String city) {
+        Paged<List<BranchData>> page = bankQueryService.branches(id, cursor, limit, q, city);
         return ApiResponse.paged(page.data(), page.nextCursor());
     }
 }
