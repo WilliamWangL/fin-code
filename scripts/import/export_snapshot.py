@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Export the AU BSB snapshot from the fincode database for the website.
+"""Export per-country bank directory snapshots from the fincode database.
 
-Produces two artefacts consumed by apps/web:
-  1. <web>/src/lib/data/generated/au-institutions.json
-     Institution index rows (keyed "au-<db id>", no slug: slugs are assigned at
-     build time by lib/data/au-directory.ts so they stay stable and collide-checked
-     against the hand-curated static dataset).
-  2. <web>/public/data/branches/au-<db id>.json
+Produces, for each country in --countries:
+  1. <web>/src/lib/data/generated/<iso-lower>-institutions.json
+     Institution index rows keyed "<iso-lower>-<db id>" carrying the database
+     slug (V17 backfill) as the site URL contract, plus a snapshotKey on the
+     country's top-3 banks by branch count only. Every institution lands in
+     the index, so the website search covers the full directory while only
+     the head banks ship build-time branch snapshots.
+  2. <web>/public/data/branches/<key>.json (top-3 banks only)
      Full branch list per institution (lazy-loaded by the branch explorer).
+     Stale <iso>-*.json files from previous runs are pruned per country.
 
 Read-only against the database. Re-runnable: output is deterministic for the
 same DB state, and files are overwritten in place.
@@ -15,12 +18,16 @@ same DB state, and files are overwritten in place.
 Rows describing the same institution (the BSB import creates one row per
 source abbreviation, e.g. "Commonwealth Bank ..." and "CST") are merged into
 a single export row before writing, mirroring the match rules of
-apps/web/src/lib/data/au-directory.ts.
+apps/web/src/lib/data/au-directory.ts. Chinese institutions have no English
+name, so their merge key is the exact local name instead of the normalised
+English form (which collapses to "" for CJK text).
 
 Usage:
-  python3 export_snapshot.py [--host H] [--port P] [--user U] [--password PW]
+  python3 export_snapshot.py [--countries AU,CN] [--host H] [--port P]
+                             [--user U] [--password PW]
                              [--database DB] [--web ROOT]
-Defaults target the dev stack (127.0.0.1:3307 fincode/fincode_dev).
+Defaults: --countries AU,CN, targeting the dev stack
+(127.0.0.1:3307 fincode/fincode_dev).
 """
 
 from __future__ import annotations
@@ -34,15 +41,35 @@ import sys
 import unicodedata
 from pathlib import Path
 
+# Branch identifier type joined onto each branch row, per country.
+COUNTRY_CONFIG = {
+    "AU": {"identifier_type": "BSB"},
+    "CN": {"identifier_type": "CNAPS"},
+}
+
+# Website slugs of the hand-curated static dataset (banks.ts) per country.
+# The export warns when one is missing from the database - the website merge
+# layer would then fail to fold the static record onto its directory row.
+STATIC_SLUGS = {
+    "AU": {"commonwealth-bank", "westpac", "national-australia-bank", "anz"},
+    "CN": {"icbc", "bank-of-china", "china-construction-bank",
+           "agricultural-bank-of-china", "bank-of-communications",
+           "china-merchants-bank", "psbc"},
+}
+
+TOP_SNAPSHOTS_PER_COUNTRY = 3
+
 INSTITUTION_SQL = """
 SELECT fi.id,
        fi.name_en,
        fi.legal_name,
        fi.short_name,
+       fi.name_local,
+       fi.slug,
        fi.institution_type
 FROM financial_institution fi
 JOIN country c ON c.id = fi.country_id
-WHERE c.iso2 = 'AU' AND fi.status = 'ACTIVE'
+WHERE c.iso2 = '%s' AND fi.status = 'ACTIVE'
 ORDER BY fi.id
 """
 
@@ -51,15 +78,15 @@ SELECT bb.institution_id,
        bb.branch_name,
        bb.branch_name_en,
        bb.city,
-       bb.state,
+       COALESCE(bb.state, bb.province),
        bb.address,
        bb.postal_code,
        bi.identifier_value
 FROM bank_branch bb
 JOIN financial_institution fi ON fi.id = bb.institution_id
 JOIN country c ON c.id = fi.country_id
-LEFT JOIN bank_identifier bi ON bi.branch_id = bb.id AND bi.identifier_type = 'BSB'
-WHERE c.iso2 = 'AU'
+LEFT JOIN bank_identifier bi ON bi.branch_id = bb.id AND bi.identifier_type = '%s'
+WHERE c.iso2 = '%s'
 ORDER BY bb.institution_id, bb.id
 """
 
@@ -72,9 +99,9 @@ def clean(value: str | None) -> str:
 
 
 # Mirrors lib/data/au-directory.ts normalizeInstitutionName(): lowercase,
-# strip accents/punctuation and common corporate suffix tokens. The web merge
-# layer assumes exported rows are pre-deduplicated under the same rules, so
-# the two implementations must stay in sync.
+# strip accents/punctuation and common corporate suffix tokens. Only defined
+# for Latin names - CJK names collapse to "" and must be matched by their
+# exact local name instead (see export_country).
 SUFFIX_TOKENS = {
     "limited", "ltd", "bank", "banking", "corporation", "corp",
     "group", "holdings", "the", "and", "of", "australia",
@@ -125,63 +152,54 @@ def run_sql(args: argparse.Namespace, sql: str) -> list[list[str]]:
     return rows
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host", default=os.environ.get("MYSQL_HOST", "127.0.0.1"))
-    parser.add_argument("--port", default=os.environ.get("MYSQL_PORT", "3307"))
-    parser.add_argument("--user", default=os.environ.get("MYSQL_USER", "fincode"))
-    parser.add_argument("--password", default=os.environ.get("MYSQL_PASSWORD", "fincode_dev"))
-    parser.add_argument("--database", default=os.environ.get("MYSQL_DATABASE", "fincode"))
-    parser.add_argument("--web", default="apps/web", help="path to the apps/web checkout")
-    args = parser.parse_args()
+def export_country(args: argparse.Namespace, iso2: str,
+                   branch_dir: Path, generated_dir: Path) -> None:
+    """Export one country's index + top-3 branch snapshots."""
+    cfg = COUNTRY_CONFIG[iso2]
+    prefix = iso2.lower()
+    warnings: list[str] = []
 
     institutions: dict[str, dict] = {}
-    for row in run_sql(args, INSTITUTION_SQL):
-        key = f"au-{row[0]}"
+    for row in run_sql(args, INSTITUTION_SQL % iso2):
+        key = f"{prefix}-{row[0]}"
+        slug = clean(row[5])
+        if not slug:
+            slug = key
+            warnings.append(f"{key}: slug missing (V17 not applied?), fell back to key")
         institutions[key] = {
             "key": key,
+            "slug": slug,
             "nameEn": clean(row[1]),
+            "nameLocal": clean(row[4]) or None,
             "legalName": clean(row[2]) or None,
             "shortName": clean(row[3]) or None,
-            "institutionType": clean(row[4]) or "BANK",
+            "institutionType": clean(row[6]) or "BANK",
             "branchesCount": 0,
+            "snapshotKey": None,
             "headOffice": None,
         }
 
-    branch_dir = Path(args.web) / "public" / "data" / "branches"
-    branch_dir.mkdir(parents=True, exist_ok=True)
-
     branches_by_key: dict[str, list[dict]] = {}
-    for row in run_sql(args, BRANCH_SQL):
-        key = f"au-{row[0]}"
+    for row in run_sql(args, BRANCH_SQL % (cfg["identifier_type"], iso2)):
+        key = f"{prefix}-{row[0]}"
         name = clean(row[1])
         name_en = clean(row[2])
-        city = clean(row[3])
-        state = clean(row[4])
-        address = clean(row[5])
-        postal = clean(row[6])
-        bsb = clean(row[7])
         branches_by_key.setdefault(key, []).append(
             {
                 "name": name_en or name,
                 "nameLocal": name if name_en and name != name_en else None,
-                "city": city or None,
-                "state": state or None,
-                "address": address or None,
-                "postalCode": postal or None,
-                "code": bsb or None,
+                "city": clean(row[3]) or None,
+                "state": clean(row[4]) or None,
+                "address": clean(row[5]) or None,
+                "postalCode": clean(row[6]) or None,
+                "code": clean(row[7]) or None,
             }
         )
 
-    generated_dir = Path(args.web) / "src" / "lib" / "data" / "generated"
-    generated_dir.mkdir(parents=True, exist_ok=True)
-
     # ── Merge same-institution rows ──────────────────────────────────────────
     # The BSB import creates one row per source abbreviation, so several rows
-    # can describe the same institution. Group with the same two-level match
-    # as au-directory.ts matchStatic() (normalized full name, then short
-    # name) and keep one row per group: the member with the most branches
-    # provides the display fields, branches are unioned by BSB code.
+    # can describe the same institution. Latin names group by the normalised
+    # English name; Chinese rows (no name_en) group by their exact local name.
     for inst in institutions.values():
         inst["branchesCount"] = len(branches_by_key.get(inst["key"], []))
 
@@ -189,13 +207,14 @@ def main() -> None:
     by_norm: dict[str, dict] = {}
     by_short: dict[str, dict] = {}
     for inst in institutions.values():
-        norm = normalize_name(inst["nameEn"])
+        norm = normalize_name(inst["nameEn"]) if inst["nameEn"] else None
         short = (inst["shortName"] or "").strip().lower()
-        group = by_norm.get(norm) or by_short.get(short)
+        group = (by_norm.get(norm) if norm else None) or (by_short.get(short) if short else None)
         if group is None:
             group = {"rows": [inst["key"]]}
             groups.append(group)
-            by_norm[norm] = group
+            if norm:
+                by_norm[norm] = group
             if short:
                 by_short[short] = group
         else:
@@ -216,6 +235,7 @@ def main() -> None:
         )
         institutions[keep].update(
             nameEn=rep["nameEn"],
+            nameLocal=rep["nameLocal"],
             legalName=rep["legalName"],
             shortName=rep["shortName"],
             institutionType=rep["institutionType"],
@@ -235,12 +255,22 @@ def main() -> None:
             if key != keep:
                 del institutions[key]
                 branches_by_key.pop(key, None)
-                # Drop stale per-row branch files from previous runs.
-                (branch_dir / f"{key}.json").unlink(missing_ok=True)
+
+    # ── Top-N snapshot selection ─────────────────────────────────────────────
+    ranked = sorted(
+        institutions.values(),
+        key=lambda item: (-item["branchesCount"], item["nameEn"] or item["nameLocal"] or ""),
+    )
+    snapshot_keys = {
+        inst["key"] for inst in ranked[:TOP_SNAPSHOTS_PER_COUNTRY]
+        if inst["branchesCount"] > 0
+    }
+    for inst in institutions.values():
+        inst["snapshotKey"] = inst["key"] if inst["key"] in snapshot_keys else None
 
     index = []
-    for key, inst in institutions.items():
-        rows = branches_by_key.get(key, [])
+    for inst in institutions.values():
+        rows = branches_by_key.get(inst["key"], [])
         inst["branchesCount"] = len(rows)
         if rows:
             head = rows[0]
@@ -249,22 +279,63 @@ def main() -> None:
                 "city": head["city"],
                 "address": head["address"],
             }
+        if inst["snapshotKey"]:
+            branch_file = branch_dir / f"{inst['key']}.json"
+            branch_file.write_text(
+                json.dumps({"institution": inst["key"], "count": len(rows), "branches": rows}, ensure_ascii=False),
+                encoding="utf-8",
+            )
         index.append(inst)
-        branch_file = branch_dir / f"{key}.json"
-        branch_file.write_text(
-            json.dumps({"institution": key, "count": len(rows), "branches": rows}, ensure_ascii=False),
-            encoding="utf-8",
-        )
 
-    index.sort(key=lambda item: (-item["branchesCount"], item["nameEn"]))
-    index_file = generated_dir / "au-institutions.json"
+    # Drop stale per-country branch files (e.g. banks that fell out of top-N).
+    for stale in branch_dir.glob(f"{prefix}-*.json"):
+        if stale.stem not in snapshot_keys:
+            stale.unlink()
+
+    # Static fold integrity: every website slug of this country must exist.
+    missing_static = STATIC_SLUGS.get(iso2, set()) - {i["slug"] for i in index}
+    if missing_static:
+        warnings.append(f"static slugs missing from {iso2} export: {sorted(missing_static)}")
+
+    index.sort(key=lambda item: (-item["branchesCount"], item["nameEn"] or item["nameLocal"] or ""))
+    index_file = generated_dir / f"{prefix}-institutions.json"
     index_file.write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
 
     total_branches = sum(item["branchesCount"] for item in index)
-    print(f"institutions: {len(index)} (merged {merged_rows} duplicate rows)")
-    print(f"branches:     {total_branches}")
-    print(f"index:        {index_file}")
-    print(f"branch files: {len(branches_by_key)} under {branch_dir}")
+    print(f"[{iso2}] institutions: {len(index)} (merged {merged_rows} duplicate rows)")
+    print(f"[{iso2}] branches:     {total_branches}")
+    print(f"[{iso2}] snapshots:    {sorted(snapshot_keys)}")
+    print(f"[{iso2}] index:        {index_file}")
+    for warning in warnings:
+        print(f"[{iso2}] WARNING: {warning}", file=sys.stderr)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--countries", default=os.environ.get("SNAPSHOT_COUNTRIES", "AU,CN"),
+                        help="comma-separated ISO2 list (default AU,CN)")
+    parser.add_argument("--host", default=os.environ.get("MYSQL_HOST", "127.0.0.1"))
+    parser.add_argument("--port", default=os.environ.get("MYSQL_PORT", "3307"))
+    parser.add_argument("--user", default=os.environ.get("MYSQL_USER", "fincode"))
+    parser.add_argument("--password", default=os.environ.get("MYSQL_PASSWORD", "fincode_dev"))
+    parser.add_argument("--database", default=os.environ.get("MYSQL_DATABASE", "fincode"))
+    parser.add_argument("--web", default="apps/web", help="path to the apps/web checkout")
+    args = parser.parse_args()
+
+    countries = [c.strip().upper() for c in args.countries.split(",") if c.strip()]
+    unknown = [c for c in countries if c not in COUNTRY_CONFIG]
+    if unknown:
+        print(f"unsupported country (no COUNTRY_CONFIG entry): {', '.join(unknown)}", file=sys.stderr)
+        sys.exit(2)
+
+    branch_dir = Path(args.web) / "public" / "data" / "branches"
+    branch_dir.mkdir(parents=True, exist_ok=True)
+    generated_dir = Path(args.web) / "src" / "lib" / "data" / "generated"
+    generated_dir.mkdir(parents=True, exist_ok=True)
+
+    for iso2 in countries:
+        export_country(args, iso2, branch_dir, generated_dir)
+    print(f"branch files kept under {branch_dir}")
 
 
 if __name__ == "__main__":
