@@ -94,6 +94,23 @@ export async function fetchBankBySlug(slug: string): Promise<ApiBankDetail | nul
   return envelope?.data ?? null;
 }
 
+export interface ApiSortCodeData {
+  sort_code: string;
+  formatted: string;
+  bank: { id: string; name_en: string; country: string };
+  city?: string | null;
+  status?: string;
+  source?: { name: string; source_type?: string };
+}
+
+/** Live sort-code lookup; null when unknown or unreachable. */
+export async function fetchSortCode(code: string): Promise<ApiSortCodeData | null> {
+  const envelope = await apiFetch<ApiEnvelope<ApiSortCodeData>>(
+    `/v1/sort-code/${encodeURIComponent(code)}`,
+  );
+  return envelope?.data ?? null;
+}
+
 export interface BranchPage {
   branches: ApiBranch[];
   nextCursor: string | null;

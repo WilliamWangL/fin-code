@@ -1,5 +1,7 @@
 import auIndex from "./generated/au-institutions.json";
 import cnIndex from "./generated/cn-institutions.json";
+import gbIndex from "./generated/gb-institutions.json";
+import ieIndex from "./generated/ie-institutions.json";
 import { institutions as staticInstitutions } from "./banks";
 import type { Branch, Institution, InstitutionType } from "./types";
 
@@ -41,6 +43,8 @@ export interface DirectoryIndexRow {
 }
 
 const generated = [
+  ...(gbIndex as DirectoryIndexRow[]),
+  ...(ieIndex as DirectoryIndexRow[]),
   ...(auIndex as DirectoryIndexRow[]),
   ...(cnIndex as DirectoryIndexRow[]),
 ];
@@ -48,6 +52,7 @@ const generated = [
 const SUFFIX_TOKENS = new Set([
   "limited",
   "ltd",
+  "plc",
   "bank",
   "banking",
   "corporation",
@@ -181,3 +186,21 @@ function buildDirectory(): DirectoryDataset {
 }
 
 export const directory: DirectoryDataset = buildDirectory();
+
+/**
+ * Resolve the directory record behind a live identifier response. The API
+ * returns name_en + country only (no slug), and the export folds name
+ * variants onto one row (e.g. "ULSTER BANK" / "ULSTER BANK LTD"), so the
+ * lookup compares normalised names instead of raw strings.
+ */
+export function institutionForLiveBank(
+  nameEn: string,
+  country: string,
+): Institution | undefined {
+  const norm = normalizeInstitutionName(nameEn);
+  return directory.institutions.find(
+    (institution) =>
+      institution.country === country &&
+      normalizeInstitutionName(institution.nameEn) === norm,
+  );
+}

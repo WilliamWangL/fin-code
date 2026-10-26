@@ -242,7 +242,7 @@ export async function IdentifierDetail({ locale, config, entry }: IdentifierDeta
                   <dd className="mt-0.5 font-medium">{institution.nameLocal}</dd>
                 </div>
               )}
-              {country && (
+              {country && institution.branches.length > 0 && (
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-muted-foreground">
                     {detail("hq")}

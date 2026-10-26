@@ -26,7 +26,7 @@ Usage:
   python3 export_snapshot.py [--countries AU,CN] [--host H] [--port P]
                              [--user U] [--password PW]
                              [--database DB] [--web ROOT]
-Defaults: --countries AU,CN, targeting the dev stack
+Defaults: --countries AU,CN,GB,IE, targeting the dev stack
 (127.0.0.1:3307 fincode/fincode_dev).
 """
 
@@ -41,15 +41,22 @@ import sys
 import unicodedata
 from pathlib import Path
 
+from static_contract import website_static_slugs
+
 # Branch identifier type joined onto each branch row, per country.
 COUNTRY_CONFIG = {
     "AU": {"identifier_type": "BSB"},
     "CN": {"identifier_type": "CNAPS"},
+    "GB": {"identifier_type": "SORT_CODE"},
+    "IE": {"identifier_type": "SORT_CODE"},
 }
 
 # Website slugs of the hand-curated static dataset (banks.ts) per country.
 # The export warns when one is missing from the database - the website merge
 # layer would then fail to fold the static record onto its directory row.
+# GB is intentionally absent: its static records (barclays, hsbc-uk,
+# lloyds-bank) fold by normalised NAME, not by slug equality, so the DB
+# slugs (barclays-bank-plc, ...) never match the website slugs.
 STATIC_SLUGS = {
     "AU": {"commonwealth-bank", "westpac", "national-australia-bank", "anz"},
     "CN": {"icbc", "bank-of-china", "china-construction-bank",
@@ -81,7 +88,8 @@ SELECT bb.institution_id,
        COALESCE(bb.state, bb.province),
        bb.address,
        bb.postal_code,
-       bi.identifier_value
+       bi.identifier_value,
+       bb.id
 FROM bank_branch bb
 JOIN financial_institution fi ON fi.id = bb.institution_id
 JOIN country c ON c.id = fi.country_id
@@ -103,7 +111,7 @@ def clean(value: str | None) -> str:
 # for Latin names - CJK names collapse to "" and must be matched by their
 # exact local name instead (see export_country).
 SUFFIX_TOKENS = {
-    "limited", "ltd", "bank", "banking", "corporation", "corp",
+    "limited", "ltd", "plc", "bank", "banking", "corporation", "corp",
     "group", "holdings", "the", "and", "of", "australia",
 }
 
@@ -179,9 +187,20 @@ def export_country(args: argparse.Namespace, iso2: str,
             "headOffice": None,
         }
 
+    # One row per bank_branch, not per attached identifier: UK/Irish branches
+    # routinely carry several sort codes (NatWest: 2,391 codes on 1,405
+    # branches), and the live API exposes one row - and counts - per branch.
+    # The joined identifier rows therefore collapse onto the first code, so
+    # the directory counts match the detail pages.
     branches_by_key: dict[str, list[dict]] = {}
+    seen_branches: dict[str, set[str]] = {}
     for row in run_sql(args, BRANCH_SQL % (cfg["identifier_type"], iso2)):
         key = f"{prefix}-{row[0]}"
+        branch_id = clean(row[8])
+        seen = seen_branches.setdefault(key, set())
+        if branch_id in seen:
+            continue
+        seen.add(branch_id)
         name = clean(row[1])
         name_en = clean(row[2])
         branches_by_key.setdefault(key, []).append(
@@ -297,6 +316,18 @@ def export_country(args: argparse.Namespace, iso2: str,
     if missing_static:
         warnings.append(f"static slugs missing from {iso2} export: {sorted(missing_static)}")
 
+    # A slug that belongs to a static page must not be reused by a different
+    # institution (see static_contract.py) - the detail page resolves slugs
+    # with a first-match lookup, so the duplicate would be unreachable. The
+    # intended folds are exempt: per-country slug equality and the GB records
+    # folded by name.
+    fold_slugs = {"barclays", "lloyds-bank"}
+    for slugs in STATIC_SLUGS.values():
+        fold_slugs |= slugs
+    collisions = (website_static_slugs() - fold_slugs) & {i["slug"] for i in index}
+    if collisions:
+        warnings.append(f"slugs shadowing website static pages: {sorted(collisions)}")
+
     index.sort(key=lambda item: (-item["branchesCount"], item["nameEn"] or item["nameLocal"] or ""))
     index_file = generated_dir / f"{prefix}-institutions.json"
     index_file.write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
@@ -312,8 +343,8 @@ def export_country(args: argparse.Namespace, iso2: str,
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--countries", default=os.environ.get("SNAPSHOT_COUNTRIES", "AU,CN"),
-                        help="comma-separated ISO2 list (default AU,CN)")
+    parser.add_argument("--countries", default=os.environ.get("SNAPSHOT_COUNTRIES", "AU,CN,GB,IE"),
+                        help="comma-separated ISO2 list (default AU,CN,GB,IE)")
     parser.add_argument("--host", default=os.environ.get("MYSQL_HOST", "127.0.0.1"))
     parser.add_argument("--port", default=os.environ.get("MYSQL_PORT", "3307"))
     parser.add_argument("--user", default=os.environ.get("MYSQL_USER", "fincode"))
