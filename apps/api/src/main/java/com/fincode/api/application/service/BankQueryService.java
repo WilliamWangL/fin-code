@@ -146,16 +146,32 @@ public class BankQueryService {
                 .map(identifier -> new IdentifierRef(identifier.getIdentifierType().name(), identifier.getIdentifierValue()))
                 .toList();
         long branchCount = branchRepository.countByInstitutionIdAndStatus(institution.getId(), EntityStatus.ACTIVE);
+        // Display names are resolved by content, not by null-ness: imported rows
+        // carry NULL or "" (V18 backfills short_name, this also covers cached and
+        // freshly re-imported rows) and an empty name breaks both the API payload
+        // and the site's BreadcrumbList structured data.
+        String nameEn = firstNonBlank(
+                institution.getNameEn(), institution.getNameLocal(), institution.getLegalName());
         return new BankDetailData(
                 IdentifierMapper.publicBankId(institution.getId()),
-                institution.getNameEn(),
+                nameEn,
                 institution.getNameLocal(),
-                institution.getShortName(),
+                firstNonBlank(institution.getShortName(), nameEn),
                 countryCodes.get(institution.getCountryId()),
                 institution.getWebsite(),
                 institution.getStatus().name(),
                 identifiers,
                 branchCount);
+    }
+
+    /** First non-blank candidate; the directory import leaves name columns NULL or "". */
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     public Paged<List<BranchData>> branches(String publicId, String cursor, Integer limit, String q, String city) {
@@ -223,13 +239,17 @@ public class BankQueryService {
                                 Collectors.toList())));
         Map<Long, String> countryCodes = countryCodes(institutions);
         return institutions.stream()
-                .map(institution -> new BankListItem(
-                        IdentifierMapper.publicBankId(institution.getId()),
-                        institution.getNameEn(),
-                        institution.getNameLocal(),
-                        institution.getShortName(),
-                        countryCodes.get(institution.getCountryId()),
-                        identifiersByInstitution.getOrDefault(institution.getId(), List.of())))
+                .map(institution -> {
+                    String nameEn = firstNonBlank(
+                            institution.getNameEn(), institution.getNameLocal(), institution.getLegalName());
+                    return new BankListItem(
+                            IdentifierMapper.publicBankId(institution.getId()),
+                            nameEn,
+                            institution.getNameLocal(),
+                            firstNonBlank(institution.getShortName(), nameEn),
+                            countryCodes.get(institution.getCountryId()),
+                            identifiersByInstitution.getOrDefault(institution.getId(), List.of()));
+                })
                 .toList();
     }
 

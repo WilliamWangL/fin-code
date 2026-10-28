@@ -4,7 +4,8 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { BreadcrumbItem } from "@/components/breadcrumb";
 import { JsonLd } from "@/components/json-ld";
 import { PageHeader } from "@/components/page-header";
-import { alternatesFor, siteConfig } from "@/lib/site";
+import { alternatesFor } from "@/lib/site";
+import { breadcrumbListJsonLd } from "@/lib/structured-data";
 
 export async function generateMetadata({
   params,
@@ -69,20 +70,7 @@ export default async function TermsPage({
         ))}
       </div>
 
-      <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          itemListElement: breadcrumbs.map((crumb, index) => ({
-            "@type": "ListItem",
-            position: index + 1,
-            name: crumb.label,
-            ...(crumb.href
-              ? { item: `${siteConfig.url}/${locale}${crumb.href === "/" ? "" : crumb.href}` }
-              : {}),
-          })),
-        }}
-      />
+      <JsonLd data={breadcrumbListJsonLd(breadcrumbs, locale)} />
     </div>
   );
 }

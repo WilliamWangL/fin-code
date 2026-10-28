@@ -34,6 +34,7 @@ import {
 } from "@/lib/data";
 import { identifierTypeLabel } from "@/lib/directory";
 import { alternatesFor, siteConfig } from "@/lib/site";
+import { breadcrumbListJsonLd } from "@/lib/structured-data";
 
 export const revalidate = 86400;
 
@@ -328,20 +329,7 @@ export default async function CountryDetailPage({
         </section>
       )}
 
-      <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          itemListElement: breadcrumbs.map((crumb, index) => ({
-            "@type": "ListItem",
-            position: index + 1,
-            name: crumb.label,
-            ...(crumb.href
-              ? { item: `${siteConfig.url}/${locale}${crumb.href === "/" ? "" : crumb.href}` }
-              : {}),
-          })),
-        }}
-      />
+      <JsonLd data={breadcrumbListJsonLd(breadcrumbs, locale)} />
       <JsonLd
         data={{
           "@context": "https://schema.org",

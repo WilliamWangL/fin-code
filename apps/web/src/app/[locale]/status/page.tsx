@@ -8,7 +8,8 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { dataSources } from "@/lib/data/sources";
-import { alternatesFor, siteConfig } from "@/lib/site";
+import { alternatesFor } from "@/lib/site";
+import { breadcrumbListJsonLd } from "@/lib/structured-data";
 
 export const revalidate = 3600;
 
@@ -97,20 +98,7 @@ export default async function StatusPage({
         <p>{t("note")}</p>
       </div>
 
-      <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          itemListElement: breadcrumbs.map((crumb, index) => ({
-            "@type": "ListItem",
-            position: index + 1,
-            name: crumb.label,
-            ...(crumb.href
-              ? { item: `${siteConfig.url}/${locale}${crumb.href === "/" ? "" : crumb.href}` }
-              : {}),
-          })),
-        }}
-      />
+      <JsonLd data={breadcrumbListJsonLd(breadcrumbs, locale)} />
     </div>
   );
 }

@@ -418,6 +418,13 @@ def main() -> None:
                 inst["legal"] = row["inst_legal"]
             inst["short"] = inst["short"] or row["inst_short"]
             inst["en"] = inst["en"] or row["inst_en"]
+    # Non-anchor institutions (rural / commercial / village banks) carry no
+    # short name in the source. short_name feeds the site breadcrumb and its
+    # BreadcrumbList JSON-LD label, and a blank label invalidates the whole
+    # breadcrumb, so fall back to the local name here (same rule as Flyway V18).
+    # name_en stays empty on purpose: it is an enrichment result.
+    for name, inst in institutions.items():
+        inst["short"] = (inst["short"] or name)[:64]
     print(f"  institutions: {len(institutions)}")
 
     # ------------------------------------------------------------------
