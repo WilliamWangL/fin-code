@@ -42,7 +42,8 @@ import {
 } from "@/lib/directory-api";
 import { sourceById } from "@/lib/data/sources";
 import { alternatesFor, siteConfig } from "@/lib/site";
-import { cn } from "@/lib/utils";
+import { breadcrumbListJsonLd } from "@/lib/structured-data";
+import { cn, firstNonBlank } from "@/lib/utils";
 
 export const revalidate = 86400;
 
@@ -155,19 +156,29 @@ export default async function BankDetailPage({
   const detail = await getTranslations({ locale, namespace: "detail" });
 
   // Directory record wins for display fields; a slug the index missed
-  // (dynamic long tail) renders straight from the API record.
+  // (dynamic long tail) renders straight from the API record. API columns
+  // are nullable and can be blank (CNAPS import leaves short_name empty),
+  // so resolve each name through the chain by content.
   const view: Institution = institution ?? {
     slug,
-    legalName: liveDetail!.name_en,
-    nameEn: liveDetail!.name_en,
-    nameLocal: liveDetail!.name_local ?? undefined,
-    shortName: liveDetail!.short_name,
+    legalName: firstNonBlank(liveDetail!.name_en, liveDetail!.name_local, slug),
+    nameEn: firstNonBlank(liveDetail!.name_en, liveDetail!.name_local, slug),
+    nameLocal: firstNonBlank(liveDetail!.name_local) || undefined,
+    shortName: firstNonBlank(
+      liveDetail!.short_name,
+      liveDetail!.name_en,
+      liveDetail!.name_local,
+      slug,
+    ),
     country: liveDetail!.country,
     institutionType: "BANK",
     website: liveDetail!.website ?? "",
     identifiers: [],
     branches: [],
   };
+  // Never renders blank: the page title, breadcrumb and structured data all
+  // key off it, and an empty label breaks the BreadcrumbList rich result.
+  const displayName = firstNonBlank(view.shortName, view.nameEn, view.nameLocal, view.slug);
   const liveIdentifiers: Identifier[] | null = liveDetail
     ? liveDetail.identifiers.map((item) => ({
         type: item.type as Identifier["type"],
@@ -215,7 +226,7 @@ export default async function BankDetailPage({
   const breadcrumbs: BreadcrumbItem[] = [
     { label: common("breadcrumbHome"), href: "/" },
     { label: t("title"), href: "/banks" },
-    { label: view.shortName },
+    { label: displayName },
   ];
 
   // Other institutions in the same country.
@@ -239,7 +250,7 @@ export default async function BankDetailPage({
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>{t("overview")}</CardTitle>
-            <CardDescription>{view.shortName}</CardDescription>
+            <CardDescription>{displayName}</CardDescription>
           </CardHeader>
           <CardContent>
             <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
@@ -554,20 +565,7 @@ export default async function BankDetailPage({
         </section>
       )}
 
-      <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          itemListElement: breadcrumbs.map((crumb, index) => ({
-            "@type": "ListItem",
-            position: index + 1,
-            name: crumb.label,
-            ...(crumb.href
-              ? { item: `${siteConfig.url}/${locale}${crumb.href === "/" ? "" : crumb.href}` }
-              : {}),
-          })),
-        }}
-      />
+      <JsonLd data={breadcrumbListJsonLd(breadcrumbs, locale)} />
       <JsonLd
         data={{
           "@context": "https://schema.org",
@@ -588,7 +586,9 @@ export default async function BankDetailPage({
           name: view.nameEn,
           legalName: view.legalName,
           ...(view.nameLocal ? { alternateName: view.nameLocal } : {}),
-          url: `${siteConfig.url}/${locale}/banks/${view.slug}`,
+          // Percent-encode the slug segment so the structured-data URL
+          // matches the canonical link (CJK slugs arrive raw here).
+          url: `${siteConfig.url}/${locale}/banks/${encodeURIComponent(view.slug)}`,
           ...(view.website ? { sameAs: [view.website] } : {}),
           ...(country ? { areaServed: country.nameEn } : {}),
           ...(headOffice?.city
