@@ -528,6 +528,7 @@ export const docPages: DocPage[] = [
             ["NOT_FOUND", "404", "The identifier does not exist in the dataset."],
             ["UNAUTHORIZED", "401", "Missing or invalid API key."],
             ["RATE_LIMITED", "429", "Rate limit exceeded — retry after the indicated delay."],
+            ["DAILY_LIMIT_EXCEEDED", "429", "Anonymous lookups used up for the day — resets at 00:00 UTC."],
             ["QUOTA_EXCEEDED", "402", "Monthly request quota exhausted."],
             ["INTERNAL", "500", "Unexpected server error — retry with backoff."],
           ],
@@ -561,6 +562,11 @@ export const docPages: DocPage[] = [
         },
       },
       {
+        id: "anonymous",
+        title: "Website lookups without a key",
+        body: "The lookup boxes on the website call these endpoints anonymously. Each client IP gets 5 lookups per UTC day, shared by every identifier type (SWIFT, routing number, sort code, BSB, IFSC, CNAPS, BIN, IBAN), plus a small per-minute burst. Responses carry X-Daily-Lookup-Limit and X-Daily-Lookup-Remaining; once the allowance is spent the API answers 429 DAILY_LIMIT_EXCEEDED until midnight UTC. Authenticated requests use the plan limits below instead and never touch the anonymous allowance.",
+      },
+      {
         id: "headers",
         title: "Rate limit headers",
         body: "Every response includes headers describing your current usage. When a 429 is returned, Retry-After states the seconds to wait.",
@@ -570,6 +576,8 @@ export const docPages: DocPage[] = [
             ["X-RateLimit-Limit", "Burst requests allowed per second."],
             ["X-RateLimit-Remaining", "Requests remaining in the current window."],
             ["X-RateLimit-Reset", "Unix timestamp when the window resets."],
+            ["X-Daily-Lookup-Limit", "Anonymous daily allowance per IP (5 on the website)."],
+            ["X-Daily-Lookup-Remaining", "Anonymous lookups left today."],
             ["Retry-After", "Seconds to wait (only present on 429)."],
           ],
         },

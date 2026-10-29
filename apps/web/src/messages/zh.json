@@ -305,6 +305,58 @@
     "binFaq2Q": "BIN 查询是免费的吗？",
     "binFaq2A": "免费，无需账号即可使用。匿名查询按网络地址限流；如需更高频率或完整 API 能力，可创建 API Key。"
   },
+  "lookup": {
+    "body": "输入标识符即可查看对应的银行与分行。目录中没有的编码会向数据供应商实时查询，并补充进目录。",
+    "button": "查询",
+    "clear": "清空",
+    "searching": "正在查询…",
+    "invalid": "格式不正确：{hint}。",
+    "notFound": "目录中没有该编码，数据供应商也没有相关记录。",
+    "rateLimited": "该网络地址的查询过于频繁，请稍后再试。",
+    "limitReached": "今日 {limit} 次免费查询已用完。注册并创建免费 API Key 可继续查询。",
+    "lookupError": "查询失败，请重试。",
+    "remaining": "今日剩余 {remaining} / {limit} 次免费查询",
+    "bank": "银行",
+    "branch": "分行",
+    "city": "城市",
+    "state": "州/省",
+    "status": "状态",
+    "source": "数据来源",
+    "viewDetail": "打开详情页",
+    "disclaimer": "目录数据来自公开登记信息与授权数据源，转账前请与收款银行确认。",
+    "types": {
+      "SWIFT": {
+        "title": "查询 SWIFT/BIC 代码",
+        "placeholder": "DEUTDEFF",
+        "hint": "SWIFT 代码为 8 位或 11 位字符，例如 DEUTDEFF 或 DEUTDEFF500"
+      },
+      "ABA_ROUTING": {
+        "title": "查询 ABA Routing Number",
+        "placeholder": "021000021",
+        "hint": "Routing Number 为 9 位数字，例如 021000021"
+      },
+      "SORT_CODE": {
+        "title": "查询 Sort Code",
+        "placeholder": "20-00-00",
+        "hint": "Sort Code 为 6 位数字，也可以写成三组，例如 20-00-00"
+      },
+      "BSB": {
+        "title": "查询 BSB 号码",
+        "placeholder": "062-001",
+        "hint": "BSB 为 6 位数字，通常写成两组，例如 062-001"
+      },
+      "IFSC": {
+        "title": "查询 IFSC 代码",
+        "placeholder": "HDFC0000001",
+        "hint": "IFSC 为 11 位字符：4 位字母、1 位 0，再加 6 位字母或数字"
+      },
+      "CNAPS": {
+        "title": "查询 CNAPS 行号",
+        "placeholder": "102100099996",
+        "hint": "CNAPS 行号为 12 位数字，例如 102100099996"
+      }
+    }
+  },
   "ibanCountry": {
     "metaTitle": "{country} 的 IBAN 格式",
     "metaDescription": "{country} 的 IBAN 长度、结构与示例。校验 {country} IBAN 并查看银行代码位置。",

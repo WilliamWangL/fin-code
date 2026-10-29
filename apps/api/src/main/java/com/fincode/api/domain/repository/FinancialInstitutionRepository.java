@@ -16,6 +16,13 @@ public interface FinancialInstitutionRepository extends JpaRepository<FinancialI
     /** Website directory lookup (V17 backfill; unique across representative rows). */
     Optional<FinancialInstitution> findBySlugAndStatus(String slug, EntityStatus status);
 
+    /**
+     * Reuse an already imported institution when an external lookup names the
+     * same bank, so provider-fetched identifiers do not fork duplicate rows.
+     */
+    Optional<FinancialInstitution> findFirstByNameEnIgnoreCaseAndCountryIdAndStatus(
+            String nameEn, Long countryId, EntityStatus status);
+
     List<FinancialInstitution> findByStatusAndIdGreaterThanOrderByIdAsc(EntityStatus status, Long id, Pageable pageable);
 
     List<FinancialInstitution> findByStatusAndCountryIdAndIdGreaterThanOrderByIdAsc(

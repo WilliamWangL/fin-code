@@ -136,6 +136,14 @@
                     -->
                     <systemPropertyVariables>
                         <api.version>1.40</api.version>
+                        <!--
+                            Disable the anonymous daily allowance: the contract
+                            tests deliberately exhaust the per-minute bucket, and
+                            a 5/day cap would answer first. The daily limiter
+                            itself is covered by RateLimitFilterTest and the
+                            DailyLookupQuotaService assertions.
+                        -->
+                        <fincode.rate-limit.anonymous-daily-limit>0</fincode.rate-limit.anonymous-daily-limit>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

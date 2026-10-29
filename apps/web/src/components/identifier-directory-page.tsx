@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import type { ReactNode } from "react";
 
 import type { BreadcrumbItem } from "@/components/breadcrumb";
 import { IdentifierDirectory } from "@/components/identifier-directory";
@@ -12,18 +13,21 @@ import { breadcrumbListJsonLd } from "@/lib/structured-data";
 export interface IdentifierDirectoryPageProps {
   locale: string;
   config: IdentifierTypeConfig;
+  /** Optional live lookup box rendered between the header and the explainer. */
+  lookup?: ReactNode;
 }
 
 /**
  * Shared renderer for identifier directory pages
  * (/swift-codes, /routing-numbers, /sort-codes, /bsb, /ifsc, /cnaps).
  *
- * Template: H1 + intro, "what is" explainer, optional format spec,
- * static directory table, FAQ, structured data.
+ * Template: H1 + intro, optional live lookup box, "what is" explainer,
+ * optional format spec, static directory table, FAQ, structured data.
  */
 export async function IdentifierDirectoryPage({
   locale,
   config,
+  lookup,
 }: IdentifierDirectoryPageProps) {
   const { rows, countries } = buildDirectoryRows(config.type);
   const t = await getTranslations({
@@ -49,6 +53,8 @@ export async function IdentifierDirectoryPage({
         description={t("subtitle")}
         breadcrumbs={breadcrumbs}
       />
+
+      {lookup}
 
       {/* ── What is this identifier ───────────────────────────────────── */}
       <section aria-labelledby="what-is" className="mt-10 grid gap-6 lg:grid-cols-3">

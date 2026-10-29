@@ -59,6 +59,7 @@ public class IdentifierQueryService {
     private final BankBinDirectoryRepository binDirectoryRepository;
     private final ResponseCache responseCache;
     private final BankDirectoryEnrichmentService directoryEnrichmentService;
+    private final SortCodeEnrichmentService sortCodeEnrichmentService;
 
     public IdentifierQueryService(BankIdentifierRepository identifierRepository,
                                   FinancialInstitutionRepository institutionRepository,
@@ -69,7 +70,8 @@ public class IdentifierQueryService {
                                   BankRoutingDirectoryRepository routingDirectoryRepository,
                                   BankBinDirectoryRepository binDirectoryRepository,
                                   ResponseCache responseCache,
-                                  BankDirectoryEnrichmentService directoryEnrichmentService) {
+                                  BankDirectoryEnrichmentService directoryEnrichmentService,
+                                  SortCodeEnrichmentService sortCodeEnrichmentService) {
         this.identifierRepository = identifierRepository;
         this.institutionRepository = institutionRepository;
         this.countryRepository = countryRepository;
@@ -80,6 +82,7 @@ public class IdentifierQueryService {
         this.binDirectoryRepository = binDirectoryRepository;
         this.responseCache = responseCache;
         this.directoryEnrichmentService = directoryEnrichmentService;
+        this.sortCodeEnrichmentService = sortCodeEnrichmentService;
     }
 
     public SwiftData findSwift(String code) {
@@ -112,8 +115,17 @@ public class IdentifierQueryService {
     }
 
     public SortCodeData findSortCode(String code) {
-        return cachedTyped(IdentifierType.SORT_CODE, code, ErrorCode.INVALID_SORT_CODE, SortCodeData.class,
-                IdentifierMapper::toSortCodeData);
+        String value = IdentifierNormalizer.normalize(code);
+        if (!IdentifierFormatValidator.isValid(IdentifierType.SORT_CODE, value)) {
+            throw new ApiException(ErrorCode.INVALID_SORT_CODE);
+        }
+        return cached(IdentifierType.SORT_CODE, value, SortCodeData.class,
+                () -> tryResolve(IdentifierType.SORT_CODE, value)
+                        // Local miss: ask the external provider, store the hit and
+                        // serve it from the directory tables afterwards.
+                        .or(() -> sortCodeEnrichmentService.lookupAndPersist(value))
+                        .map(IdentifierMapper::toSortCodeData)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND)));
     }
 
     public BsbData findBsb(String code) {
