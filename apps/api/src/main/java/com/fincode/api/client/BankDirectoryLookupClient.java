@@ -18,11 +18,11 @@ import org.springframework.web.client.RestClientResponseException;
 
 /**
  * External bank directory lookups backing GET /v1/swift/{code},
- * GET /v1/routing/{number} and GET /v1/bin/{bin} when the local directory
- * tables have no row: the Wise public validator first for SWIFT, then
- * api-ninjas.com for all three. These are best-effort enrichment sources -
- * a miss or a provider/network failure returns empty and never surfaces as
- * an API error.
+ * GET /v1/routing/{number}, GET /v1/bin/{bin} and GET /v1/sort-code/{code}
+ * when the local tables have no row: the Wise public validator first for
+ * SWIFT, then api-ninjas.com for all four. These are best-effort enrichment
+ * sources - a miss or a provider/network failure returns empty and never
+ * surfaces as an API error.
  */
 @Component
 public class BankDirectoryLookupClient {
@@ -207,6 +207,56 @@ public class BankDirectoryLookupClient {
     }
 
     /**
+     * api-ninjas.com /v1/sortcode backing GET /v1/sort-code/{code}; skipped
+     * while no API key is configured. The provider is UK-only and accepts the
+     * code with or without the dash pairs, so both spellings are tried (the
+     * caller's normalized value is what gets persisted). A network failure
+     * ends the attempt: the second spelling cannot reach a different host.
+     */
+    public Optional<SortCodeEnrichment> lookupSortCodeApiNinjas(String sortCode) {
+        if (!properties.isApiNinjasConfigured()) {
+            return Optional.empty();
+        }
+        for (String candidate : new String[] { formattedSortCode(sortCode), sortCode }) {
+            try {
+                JsonNode array = apiNinjasClient.get()
+                        .uri(uriBuilder -> uriBuilder
+                                .path("/v1/sortcode")
+                                .queryParam("sort_code", candidate)
+                                .build())
+                        .header("X-Api-Key", properties.getApiNinjasKey())
+                        .retrieve()
+                        .body(JsonNode.class);
+                if (array != null && array.isArray() && !array.isEmpty()) {
+                    JsonNode obj = array.get(0);
+                    return Optional.of(new SortCodeEnrichment(
+                            sortCode,
+                            text(obj, "bank_name"),
+                            text(obj, "branch_name"),
+                            text(obj, "street_address"),
+                            text(obj, "city"),
+                            text(obj, "postcode"),
+                            text(obj, "country"),
+                            text(obj, "phone_number"),
+                            text(obj, "swift_code"),
+                            bool(obj, "bacs_supported"),
+                            bool(obj, "chaps_supported"),
+                            bool(obj, "faster_payments_supported"),
+                            bool(obj, "checksum_valid")));
+                }
+            } catch (RestClientResponseException exception) {
+                log.warn("api-ninjas sort code lookup rejected {}: status={}",
+                        candidate, exception.getStatusCode().value());
+            } catch (ResourceAccessException exception) {
+                log.warn("api-ninjas sort code lookup is unreachable for {}: {}",
+                        candidate, exception.getMessage());
+                return Optional.empty();
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
      * api-ninjas.com /v1/iban backing GET /v1/iban/{iban}; skipped while no API
      * key is configured. Returns the provider payload so the enrichment
      * service can persist both the bank-code → SWIFT map and the SWIFT
@@ -248,6 +298,26 @@ public class BankDirectoryLookupClient {
     /** The /v1/iban provider payload, kept provider-shaped for the enrichment service. */
     public record IbanEnrichment(String iban, boolean valid, String country, String bankCode,
                                  String swiftCode, String bankName, String bankAddress, String accountNumber) {
+    }
+
+    /**
+     * The /v1/sortcode provider payload, kept provider-shaped for the
+     * enrichment service: the branch and payment-scheme fields have no
+     * dedicated directory columns and feed the branch row instead.
+     */
+    public record SortCodeEnrichment(String sortCode, String bankName, String branchName,
+                                     String streetAddress, String city, String postcode, String country,
+                                     String phoneNumber, String swiftCode, Boolean bacsSupported,
+                                     Boolean chapsSupported, Boolean fasterPaymentsSupported,
+                                     Boolean checksumValid) {
+    }
+
+    /** "200000" → "20-00-00", the spelling api-ninjas documents. */
+    private static String formattedSortCode(String sortCode) {
+        if (sortCode == null || sortCode.length() != 6) {
+            return sortCode;
+        }
+        return sortCode.substring(0, 2) + "-" + sortCode.substring(2, 4) + "-" + sortCode.substring(4);
     }
 
     /** The provider returns the card categories as an array of plain strings. */

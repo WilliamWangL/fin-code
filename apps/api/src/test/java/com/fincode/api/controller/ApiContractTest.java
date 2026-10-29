@@ -509,6 +509,44 @@ class ApiContractTest {
     }
 
     @Test
+    void sortCodeLookupFallsBackToExternalProviderAndPersists() throws Exception {
+        Mockito.when(directoryLookupClient.lookupSortCodeApiNinjas("209999")).thenReturn(Optional.of(
+                new BankDirectoryLookupClient.SortCodeEnrichment("209999", "Barclays Bank UK PLC",
+                        "Head Office Collection Account", "1 Churchill Place", "London", "E14 5HP", "GB",
+                        "0345 734 5345", "BUKBGB22", true, true, true, true)));
+
+        mockMvc.perform(get("/v1/sort-code/20-99-99").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sort_code").value("209999"))
+                .andExpect(jsonPath("$.data.formatted").value("20-99-99"))
+                .andExpect(jsonPath("$.data.bank.name_en").value("Barclays Bank UK PLC"))
+                .andExpect(jsonPath("$.data.bank.short_name").value("Barclays"))
+                .andExpect(jsonPath("$.data.city").value("London"))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.source.name").value("api-ninjas.com"));
+
+        // The hit lives in the relational directory, not in a provider cache.
+        BankIdentifier stored = identifierRepository
+                .findByIdentifierTypeAndIdentifierValue(IdentifierType.SORT_CODE, "209999")
+                .orElseThrow();
+        assertThat(stored.getBranchId()).isNotNull();
+        assertThat(branchRepository.findById(stored.getBranchId())).get()
+                .extracting(BankBranch::getBranchName, BankBranch::getCity)
+                .containsExactly("Head Office Collection Account", "London");
+        // The imported GB institution is reused instead of duplicated.
+        assertThat(institutionRepository.findAll().stream()
+                .filter(row -> "Barclays Bank UK PLC".equalsIgnoreCase(row.getNameEn()))
+                .count()).isEqualTo(1);
+
+        // The next identical lookup is served locally: no further provider call.
+        Mockito.clearInvocations(directoryLookupClient);
+        mockMvc.perform(get("/v1/sort-code/209999").header(HttpHeaders.AUTHORIZATION, bearer(enterpriseKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sort_code").value("209999"));
+        Mockito.verifyNoInteractions(directoryLookupClient);
+    }
+
+    @Test
     void anonymousDirectoryLookupsArePublicAndIpRateLimited() throws Exception {
         // The website tools call these endpoints without an API key.
         mockMvc.perform(get("/v1/swift/ICBKCNBJ"))
