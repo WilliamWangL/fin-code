@@ -7,6 +7,8 @@ import {
 } from "@/components/identifier-directory-page";
 import { identifierTypeConfigs } from "@/lib/directory";
 
+import { SortCodeLookup } from "./sort-code-lookup";
+
 const config = identifierTypeConfigs.SORT_CODE;
 
 export async function generateMetadata({
@@ -25,5 +27,5 @@ export default async function SortCodesPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  return <IdentifierDirectoryPage locale={locale} config={config} />;
+  return <IdentifierDirectoryPage locale={locale} config={config} lookup={<SortCodeLookup />} />;
 }

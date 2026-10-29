@@ -303,7 +303,22 @@
     "binFaq1Q": "BIN 和 IIN 是一回事吗？",
     "binFaq1A": "实际上是的 —— IIN（Issuer Identification Number）是 ISO/IEC 7812 标准名称，BIN 是行业惯用名称，两者都指识别发卡机构的前导数字。",
     "binFaq2Q": "BIN 查询是免费的吗？",
-    "binFaq2A": "免费，无需账号即可使用。匿名查询按网络地址限流；如需更高频率或完整 API 能力，可创建 API Key。"
+    "binFaq2A": "免费，无需账号即可使用。匿名查询按网络地址限流；如需更高频率或完整 API 能力，可创建 API Key。",
+    "sortCodeLookupTitle": "查询 Sort Code",
+    "sortCodeLookupBody": "输入英国 Sort Code，查看对应的银行与分行。目录中没有的编码会向数据供应商实时查询，并补充进目录。",
+    "sortCodePlaceholder": "20-00-00",
+    "sortCodeEnter": "输入 Sort Code",
+    "sortCodeLookingUp": "正在查询 Sort Code…",
+    "sortCodeInvalid": "Sort Code 为 6 位数字，也可以写成三组，例如 20-00-00。",
+    "sortCodeNotFound": "目录中没有该 Sort Code，数据供应商也没有相关记录。",
+    "sortCodeRateLimited": "该网络地址的查询过于频繁，请稍后再试。",
+    "sortCodeLookupError": "Sort Code 查询失败，请重试。",
+    "sortCodeBankLabel": "银行",
+    "sortCodeCityLabel": "城市",
+    "sortCodeStatusLabel": "状态",
+    "sortCodeSourceLabel": "数据来源",
+    "sortCodeViewDetail": "打开该 Sort Code 详情页",
+    "sortCodeDisclaimer": "Sort Code 数据由英国支付体系发布，转账前请与收款银行确认信息。"
   },
   "ibanCountry": {
     "metaTitle": "{country} 的 IBAN 格式",

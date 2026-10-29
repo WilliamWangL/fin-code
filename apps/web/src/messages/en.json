@@ -303,7 +303,22 @@
     "binFaq1Q": "Is a BIN the same as an IIN?",
     "binFaq1A": "In practice yes — IIN (Issuer Identification Number) is the ISO/IEC 7812 standard name, while BIN is the industry term. Both refer to the leading digits that identify the issuing institution.",
     "binFaq2Q": "Is the BIN checker free?",
-    "binFaq2A": "Yes — the checker is free and needs no account. Anonymous lookups are rate-limited per network address; create an API key for higher limits and full API access."
+    "binFaq2A": "Yes — the checker is free and needs no account. Anonymous lookups are rate-limited per network address; create an API key for higher limits and full API access.",
+    "sortCodeLookupTitle": "Look up a sort code",
+    "sortCodeLookupBody": "Enter a UK sort code to see the bank and branch behind it. Codes outside the directory are fetched from our data provider and added to the directory.",
+    "sortCodePlaceholder": "20-00-00",
+    "sortCodeEnter": "Enter a sort code",
+    "sortCodeLookingUp": "Looking up the sort code…",
+    "sortCodeInvalid": "A sort code is 6 digits, optionally written as three pairs, e.g. 20-00-00.",
+    "sortCodeNotFound": "This sort code is not in the directory and our data provider has no record of it.",
+    "sortCodeRateLimited": "Too many lookups from this network. Please try again in a moment.",
+    "sortCodeLookupError": "The sort code lookup failed. Please try again.",
+    "sortCodeBankLabel": "Bank",
+    "sortCodeCityLabel": "City",
+    "sortCodeStatusLabel": "Status",
+    "sortCodeSourceLabel": "Source",
+    "sortCodeViewDetail": "Open the sort code page",
+    "sortCodeDisclaimer": "Sort code data is published by the UK payment schemes. Confirm the details with the receiving bank before sending money."
   },
   "ibanCountry": {
     "metaTitle": "IBAN Format in {country}",
