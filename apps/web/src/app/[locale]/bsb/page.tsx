@@ -5,6 +5,7 @@ import {
   IdentifierDirectoryPage,
   identifierDirectoryMetadata,
 } from "@/components/identifier-directory-page";
+import { IdentifierLookup } from "@/components/identifier-lookup";
 import { identifierTypeConfigs } from "@/lib/directory";
 
 const config = identifierTypeConfigs.BSB;
@@ -25,5 +26,11 @@ export default async function BsbPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  return <IdentifierDirectoryPage locale={locale} config={config} />;
+  return (
+    <IdentifierDirectoryPage
+      locale={locale}
+      config={config}
+      lookup={<IdentifierLookup type="BSB" />}
+    />
+  );
 }
