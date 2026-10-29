@@ -28,6 +28,10 @@ public class CorsConfig {
             RequestIdFilter.HEADER,
             "X-RateLimit-Limit",
             "X-RateLimit-Remaining",
+            // Daily allowance of the anonymous website lookups, read by the
+            // lookup boxes to show the remaining count.
+            "X-Daily-Lookup-Limit",
+            "X-Daily-Lookup-Remaining",
             HttpHeaders.RETRY_AFTER);
 
     @Bean

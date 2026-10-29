@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fincode.api.TestcontainersConfiguration;
 import com.fincode.api.application.service.ApiKeyService;
+import com.fincode.api.application.service.DailyLookupQuotaService;
 import com.fincode.api.client.BankDirectoryLookupClient;
 import com.fincode.api.domain.enums.IdentifierType;
 import com.fincode.api.domain.enums.InstitutionType;
@@ -37,10 +38,12 @@ import com.fincode.api.domain.repository.IbanBankCodeMapRepository;
 import com.fincode.api.domain.repository.IbanCountryFormatRepository;
 import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -107,6 +110,9 @@ class ApiContractTest {
 
     @Autowired
     private StringRedisTemplate redis;
+
+    @Autowired
+    private DailyLookupQuotaService dailyQuotaService;
 
     private String enterpriseKey;
     private String freeKey;
@@ -561,16 +567,54 @@ class ApiContractTest {
         mockMvc.perform(get("/v1/iban/DE16200700000532013000"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.bank.swift_code").value("DEUTDEHH"));
+        mockMvc.perform(get("/v1/sort-code/20-00-00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.formatted").value("20-00-00"));
+        mockMvc.perform(get("/v1/bsb/062-001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.formatted").value("062-001"));
+        mockMvc.perform(get("/v1/ifsc/SBIN0001234"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ifsc").value("SBIN0001234"));
+        mockMvc.perform(get("/v1/cnaps/102100099996"))
+                .andExpect(status().isOk());
 
-        // The anonymous bucket is 10 lookups per minute per IP; this test
-        // exhausts it, so it must stay the only anonymous caller in the suite.
-        for (int i = 0; i < 6; i++) {
+        // The anonymous bucket is 10 lookups per minute per IP; the eight
+        // requests above plus these two exhaust it, so this test must stay the
+        // only anonymous caller in the suite.
+        for (int i = 0; i < 2; i++) {
             mockMvc.perform(get("/v1/swift/ICBKCNBJ"))
                     .andExpect(status().isOk());
         }
         mockMvc.perform(get("/v1/swift/ICBKCNBJ"))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.error.code").value("RATE_LIMITED"));
+    }
+
+    @Test
+    void anonymousDailyAllowanceIsSharedPerIpAndExpiresWithTheDay() {
+        // The website keeps its own browser-side counter; this is the server
+        // half, shared by every identifier page for one client IP.
+        String clientIp = "198.51.100.24";
+        redis.delete(DailyLookupQuotaService.key(clientIp, LocalDate.now(ZoneOffset.UTC)));
+
+        for (int i = 0; i < 5; i++) {
+            DailyLookupQuotaService.Result result = dailyQuotaService.acquire(clientIp, 5);
+            assertThat(result.allowed()).isTrue();
+            assertThat(result.remaining()).isEqualTo(4 - i);
+        }
+        DailyLookupQuotaService.Result denied = dailyQuotaService.acquire(clientIp, 5);
+        assertThat(denied.allowed()).isFalse();
+        assertThat(denied.remaining()).isZero();
+        assertThat(denied.retryAfterMs()).isPositive();
+
+        // The counter dies with the UTC day, so tomorrow starts from five again.
+        Long ttl = redis.getExpire(DailyLookupQuotaService.key(clientIp, LocalDate.now(ZoneOffset.UTC)),
+                TimeUnit.SECONDS);
+        assertThat(ttl).isPositive();
+
+        // A different visitor keeps their own allowance.
+        assertThat(dailyQuotaService.acquire("198.51.100.25", 5).remaining()).isEqualTo(4);
     }
 
     @Test
