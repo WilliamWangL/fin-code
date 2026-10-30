@@ -38,6 +38,7 @@ import {
   checkSwiftFormat,
 } from "@/lib/identifiers";
 import { alternatesFor, siteConfig } from "@/lib/site";
+import { breadcrumbListJsonLd } from "@/lib/structured-data";
 
 /** Bare hostname for display; null when the record has no usable website. */
 function hostnameOf(url: string): string | null {
@@ -387,20 +388,7 @@ export async function IdentifierDetail({ locale, config, entry }: IdentifierDeta
         </p>
       </section>
 
-      <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          itemListElement: breadcrumbs.map((crumb, index) => ({
-            "@type": "ListItem",
-            position: index + 1,
-            name: crumb.label,
-            ...(crumb.href
-              ? { item: `${siteConfig.url}/${locale}${crumb.href === "/" ? "" : crumb.href}` }
-              : {}),
-          })),
-        }}
-      />
+      <JsonLd data={breadcrumbListJsonLd(breadcrumbs, locale)} />
       <JsonLd
         data={{
           "@context": "https://schema.org",

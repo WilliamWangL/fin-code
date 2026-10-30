@@ -4,6 +4,7 @@ import gbIndex from "./generated/gb-institutions.json";
 import ieIndex from "./generated/ie-institutions.json";
 import { institutions as staticInstitutions } from "./banks";
 import type { Branch, Institution, InstitutionType } from "./types";
+import { firstNonBlank } from "@/lib/utils";
 
 /**
  * Merges the pipeline-exported directory indexes (one JSON per country,
@@ -86,12 +87,16 @@ function matchStatic(
   const norm = normalizeInstitutionName(gen.nameEn);
   const short = gen.shortName?.trim().toLowerCase();
   // 1) normalized full-name equality (covers the CN anchors, whose exported
-  //    nameEn matches the static dataset exactly)
-  const byName = pool.find(
-    (institution) =>
-      institution.country === genCountryOf(gen) &&
-      normalizeInstitutionName(institution.nameEn) === norm,
-  );
+  //    nameEn matches the static dataset exactly). CN rural banks export an
+  //    empty nameEn, and an empty needle must not fold the row onto a
+  //    static record.
+  const byName = norm
+    ? pool.find(
+        (institution) =>
+          institution.country === genCountryOf(gen) &&
+          normalizeInstitutionName(institution.nameEn) === norm,
+      )
+    : undefined;
   if (byName) return byName;
   // 2) short-name equality (e.g. ANZ / NAB vs the expanded legal-style name)
   if (short) {
@@ -154,10 +159,14 @@ function buildDirectory(): DirectoryDataset {
 
     const record: Institution = {
       slug: gen.slug,
-      legalName: gen.legalName ?? (gen.nameEn || gen.nameLocal || gen.slug),
-      nameEn: gen.nameEn || gen.nameLocal || gen.slug,
-      nameLocal: gen.nameLocal ?? undefined,
-      shortName: gen.shortName ?? gen.nameEn ?? gen.slug,
+      // Imported rows leave nameEn/shortName NULL or "" for non-anchor
+      // institutions (every CN rural bank, all GB/IE rows). Resolve through
+      // the name chain by content, not by null-ness, or the detail page
+      // renders an empty breadcrumb/heading.
+      legalName: firstNonBlank(gen.legalName, gen.nameEn, gen.nameLocal, gen.slug),
+      nameEn: firstNonBlank(gen.nameEn, gen.nameLocal, gen.slug),
+      nameLocal: firstNonBlank(gen.nameLocal) || undefined,
+      shortName: firstNonBlank(gen.shortName, gen.nameEn, gen.nameLocal, gen.slug),
       country: genCountryOf(gen),
       institutionType: (gen.institutionType as InstitutionType) ?? "BANK",
       website: "",

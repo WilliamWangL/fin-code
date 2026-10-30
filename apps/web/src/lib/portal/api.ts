@@ -75,7 +75,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     throw new PortalApiError("NETWORK", "Cannot reach the FinCode API", 0);
   }
 
-  if (response.status === 401 && auth && token && retry && (await tryRefresh())) {
+  if (response.status === 401 && auth && token && retry && (await refreshSession())) {
     return request<T>(path, { ...options, retry: false });
   }
 
@@ -95,7 +95,22 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return (payload as ApiEnvelope<T>).data;
 }
 
-async function tryRefresh(): Promise<boolean> {
+// Refresh tokens are single-use (the API rotates them), and a dashboard mount
+// fires several requests at once. The refresh must therefore be single-flight:
+// parallel refreshes would let the first call rotate the token while the next
+// one fails and clears the session right after a page reload.
+let refreshInFlight: Promise<boolean> | null = null;
+
+function refreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = performRefresh().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function performRefresh(): Promise<boolean> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
     clearSession();

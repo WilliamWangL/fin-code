@@ -7,7 +7,8 @@ import { IdentifierDirectory } from "@/components/identifier-directory";
 import { JsonLd } from "@/components/json-ld";
 import { PageHeader } from "@/components/page-header";
 import { buildDirectoryRows, type IdentifierTypeConfig } from "@/lib/directory";
-import { alternatesFor, siteConfig } from "@/lib/site";
+import { alternatesFor } from "@/lib/site";
+import { breadcrumbListJsonLd } from "@/lib/structured-data";
 
 export interface IdentifierDirectoryPageProps {
   locale: string;
@@ -126,20 +127,7 @@ export async function IdentifierDirectoryPage({
         </div>
       </section>
 
-      <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          itemListElement: breadcrumbs.map((crumb, index) => ({
-            "@type": "ListItem",
-            position: index + 1,
-            name: crumb.label,
-            ...(crumb.href
-              ? { item: `${siteConfig.url}/${locale}${crumb.href === "/" ? "" : crumb.href}` }
-              : {}),
-          })),
-        }}
-      />
+      <JsonLd data={breadcrumbListJsonLd(breadcrumbs, locale)} />
       <JsonLd
         data={{
           "@context": "https://schema.org",

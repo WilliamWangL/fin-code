@@ -28,10 +28,10 @@ export interface SessionState {
 const ANONYMOUS: SessionState = { status: "anonymous", user: null };
 
 let snapshot: SessionState = ANONYMOUS;
+let snapshotKey: string | null = null;
 const listeners = new Set<() => void>();
 
-function readIdentity(): PortalIdentity | null {
-  const raw = window.localStorage.getItem(USER_KEY);
+function parseIdentity(raw: string | null): PortalIdentity | null {
   if (!raw) {
     return null;
   }
@@ -42,16 +42,34 @@ function readIdentity(): PortalIdentity | null {
   }
 }
 
+/**
+ * Reads through to localStorage and caches the result. The cache keeps the
+ * snapshot referentially stable (a useSyncExternalStore requirement) and is
+ * keyed on the raw values, so a page reload - which starts from a fresh module
+ * holding ANONYMOUS - picks the stored session up on the first client render
+ * instead of staying signed out until the next save/clear.
+ */
 function readSession(): SessionState {
-  const accessToken = window.localStorage.getItem(ACCESS_KEY);
-  if (!accessToken) {
+  if (typeof window === "undefined") {
     return ANONYMOUS;
   }
-  return { status: "authenticated", user: readIdentity() };
+  const accessToken = window.localStorage.getItem(ACCESS_KEY);
+  const rawUser = window.localStorage.getItem(USER_KEY);
+  const key = `${accessToken ?? ""}\u0000${rawUser ?? ""}`;
+  if (key === snapshotKey) {
+    return snapshot;
+  }
+  snapshotKey = key;
+  snapshot = accessToken
+    ? { status: "authenticated", user: parseIdentity(rawUser) }
+    : ANONYMOUS;
+  return snapshot;
 }
 
 function emit(): void {
-  snapshot = typeof window === "undefined" ? ANONYMOUS : readSession();
+  // Refresh the cache before notifying so listeners that read the snapshot
+  // synchronously observe the new state.
+  readSession();
   listeners.forEach((listener) => listener());
 }
 
@@ -75,7 +93,7 @@ function subscribe(listener: () => void): () => void {
 }
 
 function getSnapshot(): SessionState {
-  return snapshot;
+  return readSession();
 }
 
 function getServerSnapshot(): SessionState {

@@ -2,7 +2,7 @@
 
 import { LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
@@ -27,21 +27,29 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const t = useTranslations("portal");
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useSession();
+  const { user, status } = useSession();
   const [ready, setReady] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const signingOutRef = useRef(false);
 
   useEffect(() => {
+    // A failed refresh clears the session; leave for the login page instead of
+    // rendering an empty dashboard. An explicit sign-out navigates home below.
+    if (signingOutRef.current) {
+      return;
+    }
     if (getAccessToken()) {
       setReady(true);
     } else {
+      setReady(false);
       // Keep query strings (e.g. /dashboard/billing?plan=startup) so the
       // preselected plan survives the login round-trip.
       router.replace(`/login?next=${encodeURIComponent(`${pathname}${window.location.search}`)}`);
     }
-  }, [router, pathname]);
+  }, [router, pathname, status]);
 
   async function onSignOut(): Promise<void> {
+    signingOutRef.current = true;
     setSigningOut(true);
     await logout();
     router.push("/");

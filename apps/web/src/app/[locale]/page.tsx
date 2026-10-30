@@ -325,7 +325,10 @@ export default async function HomePage({
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/register"
-                className={cn(buttonVariants({ size: "lg" }), "bg-white text-primary-foreground hover:opacity-90")}
+                className={cn(
+                  buttonVariants({ size: "lg" }),
+                  "bg-white text-primary hover:bg-white/90 dark:text-primary-foreground",
+                )}
               >
                 {t("home.devCtaPrimary")}
               </Link>

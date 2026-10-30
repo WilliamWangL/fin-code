@@ -11,6 +11,7 @@ import { Link } from "@/i18n/navigation";
 import { datasetStats } from "@/lib/data";
 import { docGroups } from "@/lib/docs";
 import { alternatesFor, siteConfig } from "@/lib/site";
+import { breadcrumbListJsonLd } from "@/lib/structured-data";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata({
@@ -195,20 +196,7 @@ export default async function DevelopersPage({
         </div>
       </section>
 
-      <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          itemListElement: breadcrumbs.map((crumb, index) => ({
-            "@type": "ListItem",
-            position: index + 1,
-            name: crumb.label,
-            ...(crumb.href
-              ? { item: `${siteConfig.url}/${locale}${crumb.href === "/" ? "" : crumb.href}` }
-              : {}),
-          })),
-        }}
-      />
+      <JsonLd data={breadcrumbListJsonLd(breadcrumbs, locale)} />
     </div>
   );
 }
