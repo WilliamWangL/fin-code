@@ -55,6 +55,9 @@ public class BankBranch {
     @Column(name = "postal_code", length = 20)
     private String postalCode;
 
+    @Column(length = 9)
+    private String micr;
+
     @Column(precision = 9, scale = 6)
     private BigDecimal latitude;
 

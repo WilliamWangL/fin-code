@@ -418,6 +418,11 @@ def main() -> None:
                 inst["legal"] = row["inst_legal"]
             inst["short"] = inst["short"] or row["inst_short"]
             inst["en"] = inst["en"] or row["inst_en"]
+    # V18 display rule: short_name must always resolve. Only the anchored
+    # institutions carry a curated short form, so the remaining ~3.5k rows
+    # would come back blank and render an empty site breadcrumb / JSON-LD name.
+    for name, inst in institutions.items():
+        inst["short"] = inst["short"] or name[:64]
     print(f"  institutions: {len(institutions)}")
 
     # ------------------------------------------------------------------

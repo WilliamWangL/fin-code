@@ -24,8 +24,6 @@ public enum ErrorCode {
     INVALID_CNAPS(HttpStatus.UNPROCESSABLE_ENTITY, "The code is not 12 digits"),
     INVALID_BIN(HttpStatus.UNPROCESSABLE_ENTITY, "The BIN is not 6 to 8 digits"),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limit exceeded - retry after the indicated delay"),
-    DAILY_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS,
-            "Daily anonymous lookup limit reached - create a free account for higher limits"),
 
     // Portal / developer account codes (FIN-003, FIN-004)
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "The email or password is incorrect"),

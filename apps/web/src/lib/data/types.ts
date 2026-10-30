@@ -47,6 +47,8 @@ export interface Identifier {
   city?: string;
   /** Human label, e.g. "Head Office". */
   label?: string;
+  /** MICR (9-digit Indian clearing code) attached to an IFSC branch record. */
+  micr?: string;
   sourceId: string;
   verified: boolean;
 }

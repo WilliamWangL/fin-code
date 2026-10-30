@@ -90,7 +90,7 @@ class BillingContractTest {
                 .andExpect(jsonPath("$.data.provider.configured").value(true))
                 .andExpect(jsonPath("$.data.plans", hasSize(3)))
                 .andExpect(jsonPath("$.data.plans[0].plan").value("DEVELOPER"))
-                .andExpect(jsonPath("$.data.plans[0].monthly_quota").value(20_000))
+                .andExpect(jsonPath("$.data.plans[0].monthly_quota").value(10_000))
                 .andExpect(jsonPath("$.data.plans[0].checkout_available").value(true));
     }
 

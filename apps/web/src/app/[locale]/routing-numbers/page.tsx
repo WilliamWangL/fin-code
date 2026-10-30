@@ -5,7 +5,6 @@ import {
   IdentifierDirectoryPage,
   identifierDirectoryMetadata,
 } from "@/components/identifier-directory-page";
-import { IdentifierLookup } from "@/components/identifier-lookup";
 import { identifierTypeConfigs } from "@/lib/directory";
 
 const config = identifierTypeConfigs.ABA_ROUTING;
@@ -26,11 +25,5 @@ export default async function RoutingNumbersPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  return (
-    <IdentifierDirectoryPage
-      locale={locale}
-      config={config}
-      lookup={<IdentifierLookup type="ABA_ROUTING" />}
-    />
-  );
+  return <IdentifierDirectoryPage locale={locale} config={config} />;
 }

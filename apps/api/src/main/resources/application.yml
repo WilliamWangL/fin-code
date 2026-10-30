@@ -57,12 +57,6 @@ fincode:
       DEVELOPER: ${PAYPAL_PLAN_DEVELOPER:}
       STARTUP: ${PAYPAL_PLAN_STARTUP:}
       BUSINESS: ${PAYPAL_PLAN_BUSINESS:}
-  # Anonymous website lookups: one per-IP allowance per UTC day shared by every
-  # identifier page (spec §42). The per-minute burst stays in RateLimitService.
-  # Zero disables the daily cap, which is what the contract tests do so they can
-  # still exhaust the minute bucket.
-  rate-limit:
-    anonymous-daily-limit: ${ANONYMOUS_DAILY_LOOKUP_LIMIT:5}
   # Third-party enrichment APIs (spec §68). The api-ninjas.com key backs up
   # the SWIFT, routing and BIN directory lookups when the local tables have no
   # row; empty keeps the fallback disabled.

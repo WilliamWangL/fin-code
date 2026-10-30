@@ -2,13 +2,12 @@
 
 import { CheckCircle2, Info, Landmark, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { CheckItem } from "@/components/check-item";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useLookupQuota } from "@/lib/lookup-quota";
 import { siteConfig } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import { validateIban } from "@/lib/iban";
@@ -32,18 +31,10 @@ type BankLookupState =
   | { status: "found"; bank: IbanBank }
   | { status: "no-bank" }
   | { status: "rate-limited" }
-  | { status: "limited" }
   | { status: "error" };
 
 export function IbanValidator() {
   const t = useTranslations("tool");
-  const quotaText = useTranslations("lookup");
-  const quota = useLookupQuota();
-  // The quota is checked and charged inside an effect keyed on `submitted`;
-  // a ref keeps the current counts readable without re-running the effect.
-  const quotaRef = useRef(quota);
-  quotaRef.current = quota;
-
   const [value, setValue] = useState("");
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -75,11 +66,6 @@ export function IbanValidator() {
       setBankState({ status: "idle" });
       return;
     }
-    if (quotaRef.current.exhausted) {
-      setBankState({ status: "limited" });
-      return;
-    }
-    quotaRef.current.record();
     let cancelled = false;
     setBankState({ status: "loading" });
     void (async () => {
@@ -88,7 +74,6 @@ export function IbanValidator() {
           headers: { Accept: "application/json" },
           cache: "no-store",
         });
-        quotaRef.current.sync(response);
         if (cancelled) return;
         const payload = (await response.json().catch(() => null)) as {
           data?: { bank?: IbanBank };
@@ -104,9 +89,7 @@ export function IbanValidator() {
           return;
         }
         const code = payload?.error?.code ?? "";
-        if (code === "DAILY_LIMIT_EXCEEDED") {
-          setBankState({ status: "limited" });
-        } else if (response.status === 429 || code === "RATE_LIMITED") {
+        if (response.status === 429 || code === "RATE_LIMITED") {
           setBankState({ status: "rate-limited" });
         } else {
           setBankState({ status: "error" });
@@ -165,10 +148,6 @@ export function IbanValidator() {
           </Button>
         )}
       </form>
-
-      <p className="text-xs text-muted-foreground">
-        {quotaText("remaining", { remaining: quota.remaining, limit: quota.limit })}
-      </p>
 
       {result && (
         <div
@@ -303,11 +282,6 @@ export function IbanValidator() {
           )}
           {bankState.status === "rate-limited" && (
             <p className="mt-3 text-sm text-muted-foreground">{t("ibanRateLimited")}</p>
-          )}
-          {bankState.status === "limited" && (
-            <p className="mt-3 text-sm text-destructive">
-              {quotaText("limitReached", { limit: quota.limit })}
-            </p>
           )}
           {bankState.status === "error" && (
             <p className="mt-3 text-sm text-muted-foreground">{t("ibanLookupError")}</p>

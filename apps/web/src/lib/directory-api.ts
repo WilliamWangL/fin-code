@@ -111,6 +111,25 @@ export async function fetchSortCode(code: string): Promise<ApiSortCodeData | nul
   return envelope?.data ?? null;
 }
 
+export interface ApiIfscData {
+  ifsc: string;
+  bank: { id: string; name_en: string; name_local?: string | null; short_name?: string | null; country: string };
+  branch?: string | null;
+  city?: string | null;
+  /** Branch-level 9-digit Indian clearing code (V19); omitted when the source has none. */
+  micr?: string | null;
+  status?: string;
+  source?: { name: string; source_type?: string };
+}
+
+/** Live IFSC lookup; null when unknown or unreachable. */
+export async function fetchIfsc(code: string): Promise<ApiIfscData | null> {
+  const envelope = await apiFetch<ApiEnvelope<ApiIfscData>>(
+    `/v1/ifsc/${encodeURIComponent(code)}`,
+  );
+  return envelope?.data ?? null;
+}
+
 export interface BranchPage {
   branches: ApiBranch[];
   nextCursor: string | null;

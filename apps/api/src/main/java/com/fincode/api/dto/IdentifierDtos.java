@@ -31,8 +31,9 @@ public final class IdentifierDtos {
                           String state, String status, SourceInfo source) {
     }
 
-    public record IfscData(String ifsc, BankSummary bank, String branch, String city, String status,
-                           SourceInfo source) {
+    /** IFSC payload; micr is the branch-level 9-digit clearing code (V19), null when the source omits it. */
+    public record IfscData(String ifsc, BankSummary bank, String branch, String city, String micr,
+                           String status, SourceInfo source) {
     }
 
     public record CnapsData(String cnaps, String bankCode, BankSummary bank, String branch, String city,

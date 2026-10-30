@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Generate the India IFSC import SQL for the fincode database.
 
-Reads the Razorpay IFSC dataset under data/ifsc/ (IFSC.csv from a tagged
-release) and emits a single SQL file (default data/ifsc/import_ifsc.sql) that
-populates:
+Reads the Razorpay IFSC dataset under data/ifsc/ (IFSC.csv and banks.json from
+the same tagged release) and emits a single SQL file (default
+data/ifsc/import_ifsc.sql) that populates:
 
   financial_institution  one row per unique bank name (~1.35k)
-  bank_branch            one row per distinct branch point (~183k)
+  bank_branch            one row per distinct branch point (~183k), MICR included
   bank_identifier        one row per 11-char IFSC code (identifier_type=IFSC)
   data_source            provenance row for the dataset
 
@@ -18,14 +18,31 @@ lists, and it is published under the MIT licence with the data itself in the
 public domain. It carries the fields the directory needs (bank, branch,
 address, city, district, state, contact, MICR, SWIFT) for every code, which is
 why it is used instead of the RBI workbooks directly: rbidocs.rbi.org.in sits
-behind an Akamai JS challenge and cannot be fetched unattended.
+behind an Akamai JS challenge and cannot be fetched unattended (verified: the
+NEFT workbook 68774.xlsx answers with the challenge HTML, and
+Scripts/IFSCMICRDetails.aspx only serves single-code lookups).
+
+banks.json (same release) is the bank master: one entry per 4-letter bank code
+with its regulator class (PSB / Private / Foreign / SCB / RRB / LAB / SFB / PB /
+O-UCB / S-UCB / DCCB), representative IFSC, main MICR and clearing participation
+flags. It carries no display name, so a code is tied to an institution through
+its representative IFSC, which is looked up in IFSC.csv. Two enrichments come
+from it: a regulator class drives institution_type (co-operative banks become
+CREDIT_UNION, payments banks DIGITAL_BANK) instead of tagging all ~1.36k rows
+BANK, and the class counts are printed in the run report.
 
 Source quirks handled here
 --------------------------
   - 19 bank codes ship with an empty BANK column (the upstream bank-name table
     has not been updated for them yet). BANK_NAME_OVERRIDES resolves them from
     the RBI/NPCI listings and the banks' own branch pages; 1035 rows depend on
-    it and are counted in the run report.
+    it and are counted in the run report. A bank code missing there falls back
+    to the name resolved through its banks.json representative IFSC.
+  - MICR is a branch-level 9-digit clearing code and is present on 83.7% of the
+    rows; it lands in bank_branch.micr (V19). One value is picked per branch
+    identity, so the 24 identities whose codes disagree keep MIN().
+  - banks.json only covers the 1,344 codes it knows; the ~56 institutions it
+    cannot resolve keep the BANK type and stay otherwise untouched.
   - The CSV is already normalised: every IFSC matches [A-Z]{4}0[A-Z0-9]{6},
     codes are unique, and STATE/CITY/DISTRICT arrive upper-cased. Names are the
     only column kept verbatim (mixed case); name_norm carries the lower-cased
@@ -60,7 +77,8 @@ Run this during a maintenance window: it holds transactions over ~183k row
 inserts and any interleaved write to these tables would wait on its locks.
 
 Usage:
-  cd data/ifsc && curl -LO https://github.com/razorpay/ifsc/releases/download/v2.0.62/IFSC.csv
+  cd data/ifsc && curl -LO https://github.com/razorpay/ifsc/releases/download/v2.0.62/IFSC.csv \
+      && curl -LO https://github.com/razorpay/ifsc/releases/download/v2.0.62/banks.json
   python3 scripts/import/import_ifsc.py [--data DIR] [--out FILE]
 Then import with (dev stack):
   docker exec -i fincode-mysql mysql -ufincode -pfincode_dev fincode < data/ifsc/import_ifsc.sql
@@ -70,6 +88,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -78,12 +97,23 @@ from pathlib import Path
 from static_contract import website_static_slugs
 
 SOURCE_NAME = "IFSC Directory (Razorpay IFSC dataset)"
-SOURCE_PROVIDER = "Razorpay IFSC (RBI NEFT/RTGS lists + NPCI NACH lists)"
+SOURCE_PROVIDER = "Razorpay IFSC (RBI NEFT/RTGS lists + NPCI NACH lists), bank master banks.json"
 SOURCE_URL = "https://github.com/razorpay/ifsc"
 SOURCE_LICENSE = "Public domain (RBI / NPCI public lists)"
 
 IFSC_RE = re.compile(r"[A-Z]{4}0[A-Z0-9]{6}")
 PIN_RE = re.compile(r"(?<!\d)([1-9]\d{5})(?!\d)\s*\.?$")
+MICR_RE = re.compile(r"\d{9}")
+
+# banks.json regulator class -> InstitutionType. Commercial banks (PSB, Private,
+# Foreign, SCB, RRB, SFB, LAB) stay BANK; co-operative banks are credit unions
+# and payments banks are the digital-bank arm of their sponsor.
+REGULATOR_TYPE_MAP: dict[str, str] = {
+    "O-UCB": "CREDIT_UNION",
+    "S-UCB": "CREDIT_UNION",
+    "DCCB": "CREDIT_UNION",
+    "PB": "DIGITAL_BANK",
+}
 
 # Bank codes whose BANK column is empty in the release CSV. Names resolved
 # against the RBI/NPCI listings and the banks' own branch pages.
@@ -138,6 +168,7 @@ class Row:
     state: str | None
     postal_code: str | None
     phone: str | None
+    micr: str | None
 
 
 def clean(value: object) -> str:
@@ -194,6 +225,12 @@ def load_rows(path: Path) -> tuple[list[Row], dict[str, str], Counter]:
             if pin:
                 stats["pincodes"] += 1
 
+            micr = clean(raw.get("MICR"))
+            if MICR_RE.fullmatch(micr):
+                stats["micr"] += 1
+            else:
+                micr = None
+
             rows.append(
                 Row(
                     ifsc=ifsc,
@@ -205,6 +242,7 @@ def load_rows(path: Path) -> tuple[list[Row], dict[str, str], Counter]:
                     state=clean(raw.get("STATE"))[:100] or None,
                     postal_code=pin.group(1) if pin else None,
                     phone=clean(raw.get("CONTACT"))[:40] or None,
+                    micr=micr,
                 )
             )
 
@@ -223,8 +261,32 @@ TYPE_BY_NAME: dict[str, str] = {
 }
 
 
-def institution_type(inst_key: str) -> str:
-    return TYPE_BY_NAME.get(inst_key, "BANK")
+def load_regulator_types(rows: list[Row], path: Path) -> dict[str, str]:
+    """inst_key -> banks.json regulator class, via the entry's representative IFSC.
+
+    banks.json keys banks by their 4-letter code and carries no display name, so
+    the code's representative IFSC is the join back to the institution name used
+    in IFSC.csv. Missing file or unresolvable codes simply yield fewer entries.
+    """
+    if not path.exists():
+        print(f"bank master {path} not found, regulator classes skipped")
+        return {}
+    by_ifsc = {row.ifsc: row.inst_key for row in rows}
+    votes: dict[str, Counter[str]] = {}
+    with open(path, encoding="utf-8") as fh:
+        master = json.load(fh)
+    for entry in master.values():
+        key = by_ifsc.get(entry.get("ifsc") or "")
+        regulator = entry.get("type")
+        if key and regulator:
+            votes.setdefault(key, Counter())[regulator] += 1
+    return {key: counts.most_common(1)[0][0] for key, counts in votes.items()}
+
+
+def institution_type(inst_key: str, regulator_types: dict[str, str]) -> str:
+    if inst_key in TYPE_BY_NAME:
+        return TYPE_BY_NAME[inst_key]
+    return REGULATOR_TYPE_MAP.get(regulator_types.get(inst_key, ""), "BANK")
 
 
 def write_staging(fh, rows: list[Row], display: dict[str, str]) -> None:
@@ -243,6 +305,7 @@ def write_staging(fh, rows: list[Row], display: dict[str, str]) -> None:
         "    state       VARCHAR(100) NULL,\n"
         "    postal_code VARCHAR(20)  NULL,\n"
         "    phone       VARCHAR(40)  NULL,\n"
+        "    micr        VARCHAR(9)   NULL,\n"
         "    KEY idx_tmp_ifsc_inst (inst_name)\n"
         ") ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n"
     )
@@ -252,7 +315,8 @@ def write_staging(fh, rows: list[Row], display: dict[str, str]) -> None:
             f"({sql_str(row.ifsc)},{sql_str(display[row.inst_key])},"
             f"{sql_str(row.branch)},{sql_str(row.address)},{sql_str(row.city)},"
             f"{sql_str(row.district)},{sql_str(row.state)},"
-            f"{sql_str(row.postal_code)},{sql_str(row.phone)})"
+            f"{sql_str(row.postal_code)},{sql_str(row.phone)},"
+            f"{sql_str(row.micr)})"
         )
         if len(batch) >= 1000:
             fh.write("INSERT INTO tmp_ifsc VALUES\n  " + ",\n  ".join(batch) + ";\n")
@@ -261,7 +325,8 @@ def write_staging(fh, rows: list[Row], display: dict[str, str]) -> None:
         fh.write("INSERT INTO tmp_ifsc VALUES\n  " + ",\n  ".join(batch) + ";\n")
 
 
-def write_sql(rows: list[Row], display: dict[str, str], out_path: Path) -> Counter:
+def write_sql(rows: list[Row], display: dict[str, str], regulator_types: dict[str, str],
+              out_path: Path) -> Counter:
     counters: Counter[str] = Counter()
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -285,6 +350,10 @@ def write_sql(rows: list[Row], display: dict[str, str], out_path: Path) -> Count
             "WHERE NOT EXISTS (SELECT 1 FROM data_source WHERE name = "
             f"{sql_str(SOURCE_NAME)});\n"
             "COMMIT;\n"
+            "-- Keep the provenance text current for rows created by an older run.\n"
+            "UPDATE data_source SET provider = "
+            f"{sql_str(SOURCE_PROVIDER)}\n"
+            f"WHERE name = {sql_str(SOURCE_NAME)} AND provider <> {sql_str(SOURCE_PROVIDER)};\n"
             "SET @src_id := (SELECT id FROM data_source WHERE name = "
             f"{sql_str(SOURCE_NAME)} ORDER BY id LIMIT 1);\n"
             "\n"
@@ -323,30 +392,40 @@ def write_sql(rows: list[Row], display: dict[str, str], out_path: Path) -> Count
         # (name, country) so a bank spelled two ways cannot split the directory.
         fh.write("\nSTART TRANSACTION;\n")
         inst_batch: list[str] = []
+        type_counts: Counter[str] = Counter()
         for key in display:
             name = display[key]
+            inst_type = institution_type(key, regulator_types)
+            type_counts[inst_type] += 1
+            # name_local/short_name mirror the V18 backfill: the display chain
+            # (breadcrumb, v1/banks, detail page) reads short_name, and a
+            # rebuilt row must not come back blank after the pre-clean.
             inst_batch.append(
-                f"({sql_str(name)},{sql_str(name)},{sql_str(clean(name).lower())},"
-                f"@in_id,{sql_str(institution_type(key))},'ACTIVE')"
+                f"({sql_str(name)},{sql_str(name)},{sql_str(name)},"
+                f"{sql_str(clean(name).lower())},{sql_str(name[:64])},"
+                f"@in_id,{sql_str(inst_type)},'ACTIVE')"
             )
         for i in range(0, len(inst_batch), 500):
             fh.write(
-                "INSERT INTO financial_institution (legal_name, name_en, name_norm,\n"
-                "                                   country_id, institution_type, status) VALUES\n  "
+                "INSERT INTO financial_institution (legal_name, name_en, name_local,\n"
+                "                                   name_norm, short_name, country_id,\n"
+                "                                   institution_type, status) VALUES\n  "
                 + ",\n  ".join(inst_batch[i:i + 500]) + ";\n"
             )
         counters["institutions"] = len(inst_batch)
+        counters.update(type_counts)
 
         fh.write(
             "\n"
             "-- Branch points: one row per (institution, branch, city, address). The\n"
             "-- key matches the identifier join below, so the 82 codes that reuse\n"
             "-- another code's identity collapse here instead of multiplying the\n"
-            "-- back-fill; the columns outside the key take MIN().\n"
+            "-- back-fill; the columns outside the key take MIN() (MICR included: the\n"
+            "-- 24 identities whose codes disagree keep one value).\n"
             "INSERT INTO bank_branch (institution_id, branch_name, address, city, province,\n"
-            "                         state, postal_code, phone, status)\n"
+            "                         state, postal_code, phone, micr, status)\n"
             "SELECT fi.id, t.branch_name, t.address, t.city, MIN(t.district), MIN(t.state),\n"
-            "       MIN(t.postal_code), MIN(t.phone), 'ACTIVE'\n"
+            "       MIN(t.postal_code), MIN(t.phone), MIN(t.micr), 'ACTIVE'\n"
             "FROM tmp_ifsc t\n"
             "JOIN financial_institution fi\n"
             "  ON fi.name_en = t.inst_name AND fi.country_id = @in_id\n"
@@ -420,6 +499,19 @@ def write_sql(rows: list[Row], display: dict[str, str], out_path: Path) -> Count
             )
 
         # ... while the four Indian static records fold onto their directory row.
+        # A non-IN row can already hold one of these slugs from the V17 backfill
+        # (e.g. the AU State Bank of India owns state-bank-of-india on the prod
+        # database), which trips uk_financial_institution_slug at the fold.
+        # Move those rows aside with the V17 id suffix first: the published
+        # Indian static URL keeps its slug and both rows stay addressable.
+        owned_slugs = ", ".join(f"'{slug}'" for slug in STATIC_SLUG_FOLDS)
+        fh.write(
+            "\n-- Static slug contract: free the slugs held outside India first.\n"
+            "UPDATE financial_institution\n"
+            "SET slug = CONCAT(LEFT(slug, 120), '-', id)\n"
+            "WHERE country_id <> @in_id\n"
+            f"  AND slug IN ({owned_slugs});\n"
+        )
         fh.write("\n-- Static slug contract (India), idempotent.\n")
         for slug, name in STATIC_SLUG_FOLDS.items():
             fh.write(
@@ -460,9 +552,10 @@ def main() -> None:
     # Branch identity matches the branch INSERT ... GROUP BY in write_sql.
     stats["distinct branches"] = len({(r.inst_key, r.branch, r.address, r.city)
                                       for r in rows})
+    regulator_types = load_regulator_types(rows, args.data / "banks.json")
 
     out_path = args.out or (args.data / "import_ifsc.sql")
-    counters = write_sql(rows, display, out_path)
+    counters = write_sql(rows, display, regulator_types, out_path)
 
     size_mb = out_path.stat().st_size / 1024 / 1024
     print("\n===== Import summary =====")
@@ -470,8 +563,13 @@ def main() -> None:
     print(f"output: {out_path} ({size_mb:.1f} MB)")
     print(f"rows: {len(rows)} IFSC codes")
     print(f"institutions: {counters['institutions']}")
+    for inst_type in ("BANK", "CREDIT_UNION", "DIGITAL_BANK", "PAYMENT_INSTITUTION", "OTHER"):
+        if counters.get(inst_type):
+            print(f"  {inst_type}: {counters[inst_type]}")
     print(f"branch points: {stats['distinct branches']}")
     print(f"bank names resolved via overrides: {stats['names_from_override']}")
+    print(f"regulator classes resolved from banks.json: {len(regulator_types)}")
+    print(f"rows with a MICR: {stats['micr']}")
     print(f"rows with a PIN extracted: {stats['pincodes']}")
     if stats["address_truncated"]:
         print(f"addresses truncated to 300 chars: {stats['address_truncated']}")

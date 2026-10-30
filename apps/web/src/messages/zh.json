@@ -22,6 +22,7 @@
     "bank": "银行",
     "branch": "网点",
     "city": "城市",
+    "micr": "MICR 码",
     "status": "状态",
     "active": "有效",
     "verified": "已验证",
@@ -132,7 +133,7 @@
     "apiFeature3Title": "可溯源数据",
     "apiFeature3Body": "每条记录都包含数据来源、获取日期与验证状态 —— 没有无来源数据。",
     "devCtaTitle": "几分钟即可上手",
-    "devCtaSubtitle": "获取免费 API Key，发起第一次 IBAN 校验请求，从每月 500 次免费请求开始扩展。",
+    "devCtaSubtitle": "获取免费 API Key，发起第一次 IBAN 校验请求，从每月 100 次免费请求开始扩展。",
     "devCtaPrimary": "免费获取 API Key",
     "devCtaSecondary": "阅读快速开始",
     "pricingTitle": "简单透明的定价",
@@ -148,7 +149,7 @@
     "faq4Q": "数据来自哪里？",
     "faq4A": "每条识别码记录都标注数据来源：ISO 13616 IBAN 注册库、ABA Routing Number 注册机构、Pay.UK、印度储备银行 IFSC 目录、公开的 CNAPS 参与者名单等官方注册库。获取日期与验证状态始终可见。",
     "faq5Q": "有免费套餐吗？",
-    "faq5A": "有。Free 套餐包含每月 500 次 API 请求、每分钟 10 次的速率限制，足够在升级前完整评估识别码覆盖情况。",
+    "faq5A": "有。Free 套餐包含每月 100 次 API 请求、每分钟 10 次的速率限制，足够在升级前完整评估识别码覆盖情况。",
     "faq6Q": "支持哪些识别码？",
     "faq6A": "IBAN、SWIFT/BIC、美国 Routing Number、英国 Sort Code、澳大利亚 BSB、印度 IFSC、中国 CNAPS，以及银行、网点与国家参考数据。LEI、CHIPS、SEPA 计划在 V2 支持。"
   },
@@ -303,59 +304,22 @@
     "binFaq1Q": "BIN 和 IIN 是一回事吗？",
     "binFaq1A": "实际上是的 —— IIN（Issuer Identification Number）是 ISO/IEC 7812 标准名称，BIN 是行业惯用名称，两者都指识别发卡机构的前导数字。",
     "binFaq2Q": "BIN 查询是免费的吗？",
-    "binFaq2A": "免费，无需账号即可使用。匿名查询按网络地址限流；如需更高频率或完整 API 能力，可创建 API Key。"
-  },
-  "lookup": {
-    "body": "输入标识符即可查看对应的银行与分行。目录中没有的编码会向数据供应商实时查询，并补充进目录。",
-    "button": "查询",
-    "clear": "清空",
-    "searching": "正在查询…",
-    "invalid": "格式不正确：{hint}。",
-    "notFound": "目录中没有该编码，数据供应商也没有相关记录。",
-    "rateLimited": "该网络地址的查询过于频繁，请稍后再试。",
-    "limitReached": "今日 {limit} 次免费查询已用完。注册并创建免费 API Key 可继续查询。",
-    "lookupError": "查询失败，请重试。",
-    "remaining": "今日剩余 {remaining} / {limit} 次免费查询",
-    "bank": "银行",
-    "branch": "分行",
-    "city": "城市",
-    "state": "州/省",
-    "status": "状态",
-    "source": "数据来源",
-    "viewDetail": "打开详情页",
-    "disclaimer": "目录数据来自公开登记信息与授权数据源，转账前请与收款银行确认。",
-    "types": {
-      "SWIFT": {
-        "title": "查询 SWIFT/BIC 代码",
-        "placeholder": "DEUTDEFF",
-        "hint": "SWIFT 代码为 8 位或 11 位字符，例如 DEUTDEFF 或 DEUTDEFF500"
-      },
-      "ABA_ROUTING": {
-        "title": "查询 ABA Routing Number",
-        "placeholder": "021000021",
-        "hint": "Routing Number 为 9 位数字，例如 021000021"
-      },
-      "SORT_CODE": {
-        "title": "查询 Sort Code",
-        "placeholder": "20-00-00",
-        "hint": "Sort Code 为 6 位数字，也可以写成三组，例如 20-00-00"
-      },
-      "BSB": {
-        "title": "查询 BSB 号码",
-        "placeholder": "062-001",
-        "hint": "BSB 为 6 位数字，通常写成两组，例如 062-001"
-      },
-      "IFSC": {
-        "title": "查询 IFSC 代码",
-        "placeholder": "HDFC0000001",
-        "hint": "IFSC 为 11 位字符：4 位字母、1 位 0，再加 6 位字母或数字"
-      },
-      "CNAPS": {
-        "title": "查询 CNAPS 行号",
-        "placeholder": "102100099996",
-        "hint": "CNAPS 行号为 12 位数字，例如 102100099996"
-      }
-    }
+    "binFaq2A": "免费，无需账号即可使用。匿名查询按网络地址限流；如需更高频率或完整 API 能力，可创建 API Key。",
+    "sortCodeLookupTitle": "查询 Sort Code",
+    "sortCodeLookupBody": "输入英国 Sort Code，查看对应的银行与分行。目录中没有的编码会向数据供应商实时查询，并补充进目录。",
+    "sortCodePlaceholder": "20-00-00",
+    "sortCodeEnter": "输入 Sort Code",
+    "sortCodeLookingUp": "正在查询 Sort Code…",
+    "sortCodeInvalid": "Sort Code 为 6 位数字，也可以写成三组，例如 20-00-00。",
+    "sortCodeNotFound": "目录中没有该 Sort Code，数据供应商也没有相关记录。",
+    "sortCodeRateLimited": "该网络地址的查询过于频繁，请稍后再试。",
+    "sortCodeLookupError": "Sort Code 查询失败，请重试。",
+    "sortCodeBankLabel": "银行",
+    "sortCodeCityLabel": "城市",
+    "sortCodeStatusLabel": "状态",
+    "sortCodeSourceLabel": "数据来源",
+    "sortCodeViewDetail": "打开该 Sort Code 详情页",
+    "sortCodeDisclaimer": "Sort Code 数据由英国支付体系发布，转账前请与收款银行确认信息。"
   },
   "ibanCountry": {
     "metaTitle": "{country} 的 IBAN 格式",
@@ -627,7 +591,7 @@
     "loginSubtitle": "管理 API Key、调用用量与组织信息。",
     "registerMetaTitle": "创建账户",
     "registerTitle": "创建免费账户",
-    "registerSubtitle": "免费获取 API Key，每月 500 次请求额度。",
+    "registerSubtitle": "免费获取 API Key，每月 100 次请求额度。",
     "email": "邮箱",
     "emailPlaceholder": "you@company.com",
     "password": "密码",

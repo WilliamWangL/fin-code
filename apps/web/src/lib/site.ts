@@ -1,9 +1,9 @@
 export const siteConfig = {
   name: "FinCode",
   tagline: "Global Financial Data API",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://fincode.example.com",
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://fincode.ecommica.com",
   apiBaseUrl:
-    process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.fincode.example.com/v1",
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.ecommica.com/v1",
   // Public PayPal client id for the checkout buttons (FIN-019); billing stays
   // hidden in the portal when it is not set.
   paypalClientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? "",
