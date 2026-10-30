@@ -2,12 +2,11 @@
 
 import { CheckCircle2, Info, XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useLookupQuota } from "@/lib/lookup-quota";
 import { siteConfig } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +32,6 @@ type LookupState =
   | { status: "invalid" }
   | { status: "not-found" }
   | { status: "rate-limited" }
-  | { status: "limited" }
   | { status: "error" };
 
 const BIN_PATTERN = /^\d{6,8}$/;
@@ -48,14 +46,7 @@ const CARD_TYPES: Record<string, { en: string; zh: string }> = {
 
 export function BinChecker() {
   const t = useTranslations("tool");
-  const quotaText = useTranslations("lookup");
   const locale = useLocale();
-  const quota = useLookupQuota();
-  // The quota is checked and charged inside an effect keyed on `submitted`;
-  // a ref keeps the current counts readable without re-running the effect.
-  const quotaRef = useRef(quota);
-  quotaRef.current = quota;
-
   const [value, setValue] = useState("");
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -80,11 +71,6 @@ export function BinChecker() {
       setState({ status: "invalid" });
       return;
     }
-    if (quotaRef.current.exhausted) {
-      setState({ status: "limited" });
-      return;
-    }
-    quotaRef.current.record();
     let cancelled = false;
     setState({ status: "loading" });
     void (async () => {
@@ -93,7 +79,6 @@ export function BinChecker() {
           headers: { Accept: "application/json" },
           cache: "no-store",
         });
-        quotaRef.current.sync(response);
         if (cancelled) return;
         const payload = (await response.json().catch(() => null)) as {
           data?: BinData;
@@ -104,9 +89,7 @@ export function BinChecker() {
           return;
         }
         const code = payload?.error?.code ?? "";
-        if (code === "DAILY_LIMIT_EXCEEDED") {
-          setState({ status: "limited" });
-        } else if (response.status === 404 || code === "NOT_FOUND") {
+        if (response.status === 404 || code === "NOT_FOUND") {
           setState({ status: "not-found" });
         } else if (response.status === 429 || code === "RATE_LIMITED") {
           setState({ status: "rate-limited" });
@@ -136,11 +119,9 @@ export function BinChecker() {
         ? t("binNotFound")
         : state.status === "rate-limited"
           ? t("binRateLimited")
-          : state.status === "limited"
-            ? quotaText("limitReached", { limit: quota.limit })
-            : state.status === "error"
-              ? t("binLookupError")
-              : null;
+          : state.status === "error"
+            ? t("binLookupError")
+            : null;
 
   return (
     <div className="space-y-6">
@@ -186,10 +167,6 @@ export function BinChecker() {
           </Button>
         )}
       </form>
-
-      <p className="text-xs text-muted-foreground">
-        {quotaText("remaining", { remaining: quota.remaining, limit: quota.limit })}
-      </p>
 
       {state.status === "loading" && (
         <p className="text-sm text-muted-foreground">{t("binLookingUp")}</p>

@@ -1,6 +1,5 @@
 package com.fincode.api.config;
 
-import com.fincode.api.application.service.DailyLookupQuotaService;
 import com.fincode.api.application.service.RateLimitService;
 import com.fincode.api.application.service.UsageService;
 import com.fincode.api.domain.model.ApiKey;
@@ -26,25 +25,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final String HEADER_RATE_LIMIT = "X-RateLimit-Limit";
     private static final String HEADER_RATE_REMAINING = "X-RateLimit-Remaining";
-    private static final String HEADER_DAILY_LIMIT = "X-Daily-Lookup-Limit";
-    private static final String HEADER_DAILY_REMAINING = "X-Daily-Lookup-Remaining";
 
     private final RateLimitService rateLimitService;
     private final UsageService usageService;
     private final ErrorResponseWriter errorResponseWriter;
-    private final DailyLookupQuotaService dailyQuotaService;
-    private final RateLimitProperties properties;
 
     public RateLimitFilter(RateLimitService rateLimitService,
                            UsageService usageService,
-                           ErrorResponseWriter errorResponseWriter,
-                           DailyLookupQuotaService dailyQuotaService,
-                           RateLimitProperties properties) {
+                           ErrorResponseWriter errorResponseWriter) {
         this.rateLimitService = rateLimitService;
         this.usageService = usageService;
         this.errorResponseWriter = errorResponseWriter;
-        this.dailyQuotaService = dailyQuotaService;
-        this.properties = properties;
     }
 
     @Override
@@ -77,8 +68,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
      * Anonymous calls reach this filter only through the public identifier
      * lookups ({@link ApiScopes#isPublicIdentifierPath}); ApiKeyAuthFilter
      * rejects every other keyless request earlier. They get a small shared
-     * per-IP bucket instead of a plan quota, plus a daily allowance shared by
-     * every identifier page.
+     * per-IP bucket instead of a plan quota.
      */
     private void limitAnonymousIdentifierLookup(HttpServletRequest request, HttpServletResponse response,
                                                 FilterChain chain) throws ServletException, IOException {
@@ -86,23 +76,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
             return;
         }
-        String ip = clientIp(request);
-        RateLimitService.Result result = rateLimitService.acquireAnonymous(ip);
+        RateLimitService.Result result = rateLimitService.acquireAnonymous(clientIp(request));
         if (!result.allowed()) {
             long retryAfterSeconds = Math.max(1, (result.retryAfterMs() + 999) / 1000);
             response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfterSeconds));
             errorResponseWriter.write(response, ErrorCode.RATE_LIMITED);
-            return;
-        }
-        DailyLookupQuotaService.Result daily = dailyQuotaService.acquire(ip, properties.getAnonymousDailyLimit());
-        if (daily.limit() > 0) {
-            response.setHeader(HEADER_DAILY_LIMIT, String.valueOf(daily.limit()));
-            response.setHeader(HEADER_DAILY_REMAINING, String.valueOf(Math.max(daily.remaining(), 0)));
-        }
-        if (!daily.allowed()) {
-            long retryAfterSeconds = Math.max(1, (daily.retryAfterMs() + 999) / 1000);
-            response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfterSeconds));
-            errorResponseWriter.write(response, ErrorCode.DAILY_LIMIT_EXCEEDED);
             return;
         }
         response.setHeader(HEADER_RATE_LIMIT, String.valueOf(RateLimitService.ANONYMOUS_CAPACITY_PER_MINUTE));

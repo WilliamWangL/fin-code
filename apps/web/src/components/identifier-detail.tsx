@@ -194,6 +194,14 @@ export async function IdentifierDetail({ locale, config, entry }: IdentifierDeta
                   <dd className="mt-1 text-sm font-medium">{identifier.label}</dd>
                 </div>
               )}
+              {identifier.micr && (
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {common("micr")}
+                  </dt>
+                  <dd className="mt-1 font-mono text-sm font-medium">{identifier.micr}</dd>
+                </div>
+              )}
               <div>
                 <dt className="text-xs uppercase tracking-wide text-muted-foreground">
                   {common("status")}

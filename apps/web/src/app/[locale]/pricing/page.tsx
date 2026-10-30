@@ -44,7 +44,7 @@ interface Plan {
 const PLANS: Plan[] = [
   {
     key: "free",
-    requests: "500",
+    requests: "100",
     rateLimit: "5 req/s",
     apiAccess: true,
     bankDirectory: true,
@@ -55,7 +55,7 @@ const PLANS: Plan[] = [
   },
   {
     key: "developer",
-    requests: "20,000",
+    requests: "10,000",
     rateLimit: "10 req/s",
     apiAccess: true,
     bankDirectory: true,
@@ -66,7 +66,7 @@ const PLANS: Plan[] = [
   },
   {
     key: "startup",
-    requests: "100,000",
+    requests: "50,000",
     rateLimit: "25 req/s",
     apiAccess: true,
     bankDirectory: true,

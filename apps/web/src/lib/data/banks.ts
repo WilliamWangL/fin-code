@@ -339,7 +339,7 @@ export const institutions: Institution[] = [
     website: "https://www.hdfcbank.com",
     identifiers: [
       { type: "SWIFT", value: "HDFCINBB", city: "Mumbai", label: "Head Office", sourceId: "src-swift-bic", verified: true },
-      { type: "IFSC", value: "HDFC0000001", label: "Head Office (Mumbai)", sourceId: "src-rbi-ifsc", verified: true },
+      { type: "IFSC", value: "HDFC0000001", label: "Head Office (Mumbai)", micr: "400240003", sourceId: "src-rbi-ifsc", verified: true },
     ],
     branches: [
       { slug: "head-office", name: "Head Office", city: "Mumbai", address: "HDFC Bank House, Senapati Bapat Marg, Lower Parel, Mumbai" },
@@ -355,7 +355,7 @@ export const institutions: Institution[] = [
     website: "https://www.icicibank.com",
     identifiers: [
       { type: "SWIFT", value: "ICICINBB", city: "Mumbai", label: "Head Office", sourceId: "src-swift-bic", verified: true },
-      { type: "IFSC", value: "ICIC0000001", label: "Head Office", sourceId: "src-rbi-ifsc", verified: true },
+      { type: "IFSC", value: "ICIC0000001", label: "Head Office", micr: "600229002", sourceId: "src-rbi-ifsc", verified: true },
     ],
     branches: [
       { slug: "head-office", name: "Head Office", city: "Mumbai", address: "ICICI Bank Towers, Bandra Kurla Complex, Mumbai" },

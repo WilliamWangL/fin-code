@@ -85,7 +85,7 @@ export default async function HomePage({
     answer: t(`home.faq${index}A`),
   }));
 
-  const quickstartCode = `curl "https://api.fincode.example.com/v1/iban/validate?iban=DE89370400440532013000" \\
+  const quickstartCode = `curl "${siteConfig.apiBaseUrl}/iban/validate?iban=DE89370400440532013000" \\
   -H "Authorization: Bearer sk_..."`;
 
   const responseCode = `{
@@ -370,9 +370,9 @@ export default async function HomePage({
                     </span>
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {plan === "free" && "500"}
-                    {plan === "developer" && "20,000"}
-                    {plan === "startup" && "100,000"}{" "}
+                    {plan === "free" && "100"}
+                    {plan === "developer" && "10,000"}
+                    {plan === "startup" && "50,000"}{" "}
                     {t("pricing.requests").toLowerCase()}
                   </p>
                 </CardContent>

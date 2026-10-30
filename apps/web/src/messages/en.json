@@ -22,6 +22,7 @@
     "bank": "Bank",
     "branch": "Branch",
     "city": "City",
+    "micr": "MICR",
     "status": "Status",
     "active": "Active",
     "verified": "Verified",
@@ -132,7 +133,7 @@
     "apiFeature3Title": "Source-attributed data",
     "apiFeature3Body": "Every record carries a data source, retrieval date and verification status — no untraceable data.",
     "devCtaTitle": "Start building in minutes",
-    "devCtaSubtitle": "Get a free API key, make your first IBAN validation call, and scale from 500 free requests per month.",
+    "devCtaSubtitle": "Get a free API key, make your first IBAN validation call, and scale from 100 free requests per month.",
     "devCtaPrimary": "Get a free API key",
     "devCtaSecondary": "Read the quickstart",
     "pricingTitle": "Simple, transparent pricing",
@@ -148,7 +149,7 @@
     "faq4Q": "Where does the data come from?",
     "faq4A": "Every identifier record carries a data source: official registries such as the ISO 13616 IBAN registry, the ABA routing number registrar, Pay.UK, the RBI IFSC directory and published CNAPS participant lists. Retrieval dates and verification status are always shown.",
     "faq5Q": "Is there a free tier?",
-    "faq5A": "Yes. The Free plan includes 500 API requests per month at 10 requests per minute — enough to evaluate the full identifier coverage before upgrading.",
+    "faq5A": "Yes. The Free plan includes 100 API requests per month at 10 requests per minute — enough to evaluate the full identifier coverage before upgrading.",
     "faq6Q": "Which identifiers are supported?",
     "faq6A": "IBAN, SWIFT/BIC, US routing numbers, UK sort codes, Australian BSB, Indian IFSC and China CNAPS codes, plus bank, branch and country reference data. LEI, CHIPS and SEPA coverage is planned for V2."
   },
@@ -303,59 +304,22 @@
     "binFaq1Q": "Is a BIN the same as an IIN?",
     "binFaq1A": "In practice yes — IIN (Issuer Identification Number) is the ISO/IEC 7812 standard name, while BIN is the industry term. Both refer to the leading digits that identify the issuing institution.",
     "binFaq2Q": "Is the BIN checker free?",
-    "binFaq2A": "Yes — the checker is free and needs no account. Anonymous lookups are rate-limited per network address; create an API key for higher limits and full API access."
-  },
-  "lookup": {
-    "body": "Enter an identifier to see the bank and branch behind it. Codes outside the directory are fetched from our data provider and added to it.",
-    "button": "Look up",
-    "clear": "Clear",
-    "searching": "Looking up…",
-    "invalid": "That does not look right: {hint}.",
-    "notFound": "This code is not in the directory and our data provider has no record of it.",
-    "rateLimited": "Too many lookups from this network. Please try again in a moment.",
-    "limitReached": "You have used all {limit} free lookups for today. Create a free account and API key to keep going.",
-    "lookupError": "The lookup failed. Please try again.",
-    "remaining": "{remaining} of {limit} free lookups left today",
-    "bank": "Bank",
-    "branch": "Branch",
-    "city": "City",
-    "state": "State",
-    "status": "Status",
-    "source": "Source",
-    "viewDetail": "Open the detail page",
-    "disclaimer": "Directory data is collected from public registers and licensed sources. Confirm the details with the receiving bank before sending money.",
-    "types": {
-      "SWIFT": {
-        "title": "Look up a SWIFT/BIC code",
-        "placeholder": "DEUTDEFF",
-        "hint": "a SWIFT code is 8 or 11 characters, e.g. DEUTDEFF or DEUTDEFF500"
-      },
-      "ABA_ROUTING": {
-        "title": "Look up an ABA routing number",
-        "placeholder": "021000021",
-        "hint": "a routing number is 9 digits, e.g. 021000021"
-      },
-      "SORT_CODE": {
-        "title": "Look up a sort code",
-        "placeholder": "20-00-00",
-        "hint": "a sort code is 6 digits, optionally written as three pairs, e.g. 20-00-00"
-      },
-      "BSB": {
-        "title": "Look up a BSB number",
-        "placeholder": "062-001",
-        "hint": "a BSB is 6 digits, usually written as two groups, e.g. 062-001"
-      },
-      "IFSC": {
-        "title": "Look up an IFSC code",
-        "placeholder": "HDFC0000001",
-        "hint": "an IFSC is 11 characters: four letters, a zero, then six alphanumerics"
-      },
-      "CNAPS": {
-        "title": "Look up a CNAPS code",
-        "placeholder": "102100099996",
-        "hint": "a CNAPS code is 12 digits, e.g. 102100099996"
-      }
-    }
+    "binFaq2A": "Yes — the checker is free and needs no account. Anonymous lookups are rate-limited per network address; create an API key for higher limits and full API access.",
+    "sortCodeLookupTitle": "Look up a sort code",
+    "sortCodeLookupBody": "Enter a UK sort code to see the bank and branch behind it. Codes outside the directory are fetched from our data provider and added to the directory.",
+    "sortCodePlaceholder": "20-00-00",
+    "sortCodeEnter": "Enter a sort code",
+    "sortCodeLookingUp": "Looking up the sort code…",
+    "sortCodeInvalid": "A sort code is 6 digits, optionally written as three pairs, e.g. 20-00-00.",
+    "sortCodeNotFound": "This sort code is not in the directory and our data provider has no record of it.",
+    "sortCodeRateLimited": "Too many lookups from this network. Please try again in a moment.",
+    "sortCodeLookupError": "The sort code lookup failed. Please try again.",
+    "sortCodeBankLabel": "Bank",
+    "sortCodeCityLabel": "City",
+    "sortCodeStatusLabel": "Status",
+    "sortCodeSourceLabel": "Source",
+    "sortCodeViewDetail": "Open the sort code page",
+    "sortCodeDisclaimer": "Sort code data is published by the UK payment schemes. Confirm the details with the receiving bank before sending money."
   },
   "ibanCountry": {
     "metaTitle": "IBAN Format in {country}",
@@ -627,7 +591,7 @@
     "loginSubtitle": "Access your API keys, usage and organization.",
     "registerMetaTitle": "Create account",
     "registerTitle": "Create your free account",
-    "registerSubtitle": "Get an API key and 500 free requests per month.",
+    "registerSubtitle": "Get an API key and 100 free requests per month.",
     "email": "Email",
     "emailPlaceholder": "you@company.com",
     "password": "Password",

@@ -248,21 +248,22 @@ def build_sql(rows: list[dict[str, str]], out_path: Path) -> Counter:
         parts.append("INSERT INTO tmp_sort_code VALUES\n  " + ",\n  ".join(batch) + ";\n")
 
     # Institutions are emitted directly from the Python-side assembly: one
-    # row per unique (name, country). legal_name = name_en = short_name =
-    # source caption; short_name feeds the site breadcrumb and its
-    # BreadcrumbList JSON-LD label, which must never be blank.
+    # row per unique (name, country). legal_name = name_en = source caption.
+    # name_local/short_name follow the V18 backfill rule: a production DB has
+    # already run that migration, so writing them only there would leave the
+    # new GB/IE rows blank in the site breadcrumb and the JSON-LD label.
     inst_batch: list[str] = []
     for (name, country), inst_type in institutions.items():
         country_var = "@ie_id" if country == "IE" else "@gb_id"
         inst_batch.append(
-            f"({esc(name)},{esc(name)},{esc(name)},{esc(name)},{country_var},"
-            f"{esc(inst_type)},'ACTIVE')"
+            f"({esc(name)},{esc(name)},{esc(name)},{esc(name)},{esc(name[:64])},"
+            f"{country_var},{esc(inst_type)},'ACTIVE')"
         )
     parts.append("START TRANSACTION;\n")
     for i in range(0, len(inst_batch), 500):
         parts.append(
-            "INSERT INTO financial_institution (legal_name, name_en, short_name, name_norm,\n"
-            "                                   country_id, institution_type, status) VALUES\n  "
+            "INSERT INTO financial_institution (legal_name, name_en, name_local, name_norm,\n"
+            "                                   short_name, country_id, institution_type, status) VALUES\n  "
             + ",\n  ".join(inst_batch[i:i + 500]) + ";\n"
         )
 

@@ -178,6 +178,7 @@ public final class IdentifierMapper {
                 toBankSummary(resolved.institution(), resolved.country()),
                 branchName(resolved.branch()),
                 branchCity(resolved.branch()),
+                branchMicr(resolved.branch()),
                 resolved.identifier().getStatus().name(),
                 toSourceInfo(resolved.source()));
     }
@@ -214,6 +215,10 @@ public final class IdentifierMapper {
 
     private static String branchState(BankBranch branch) {
         return branch != null ? branch.getState() : null;
+    }
+
+    private static String branchMicr(BankBranch branch) {
+        return branch != null ? branch.getMicr() : null;
     }
 
     private static String branchName(BankBranch branch) {
