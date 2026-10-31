@@ -48,6 +48,7 @@
     "resultsCount": "{count, plural, =0 {暂无结果} other {# 条结果}}",
     "copy": "复制",
     "copied": "已复制",
+    "codeLanguage": "代码语言",
     "apiEndpoint": "API 端点",
     "visitWebsite": "访问官网",
     "otherIdentifiers": "其他识别码",
