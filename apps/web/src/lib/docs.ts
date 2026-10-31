@@ -31,6 +31,7 @@ export interface DocPage {
 }
 
 const API = siteConfig.apiBaseUrl;
+const SITE = siteConfig.url;
 
 function code(language: string, content: string, label?: string): DocCode {
   const trimmed = content.replace(/^\n+|\n+$/g, "");
@@ -453,7 +454,7 @@ export const docPages: DocPage[] = [
       {
         id: "next-steps",
         title: "Next steps",
-        body: "Browse the endpoint reference for SWIFT, routing and local identifier lookups, or read the error handling guide before you ship to production.",
+        body: "Grab a dependency-free client from the SDKs page, browse the endpoint reference for SWIFT, routing and local identifier lookups, or read the error handling guide before you ship to production.",
       },
     ],
   },
@@ -468,11 +469,12 @@ export const docPages: DocPage[] = [
         title: "Bearer authentication",
         body: "All API requests require an API key in the Authorization header. Keys use the sk_ prefix followed by a random secret.",
         code: [
-          code("http", `Authorization: Bearer sk_xxx`),
+          code("http", `Authorization: Bearer sk_xxx`, "Header"),
           code(
             "bash",
             `curl -s "${API}/banks" \
   -H "Authorization: Bearer sk_xxx"`,
+            "cURL",
           ),
         ],
       },
@@ -936,6 +938,7 @@ GET ${API}/countries/{code}/iban-format`,
             ["GET", "/v1/banks", "List financial institutions."],
             ["GET", "/v1/banks/{id}", "Get one institution."],
             ["GET", "/v1/banks/search?q=", "Search institutions by name."],
+            ["GET", "/v1/banks/by-slug/{slug}", "Get one institution by its URL slug."],
             ["GET", "/v1/banks/{id}/branches", "List branches of an institution."],
             ["GET", "/v1/countries", "List countries."],
             ["GET", "/v1/countries/{code}", "Get one country."],
@@ -947,7 +950,7 @@ GET ${API}/countries/{code}/iban-format`,
       {
         id: "portal-endpoints",
         title: "Developer portal",
-        body: "Account, organization, API key and usage endpoints. Authenticated with a JWT access token from POST /v1/auth/login: Authorization: Bearer <access_token>.",
+        body: "Account, organization, API key, billing and usage endpoints. Authenticated with a JWT access token from POST /v1/auth/login: Authorization: Bearer <access_token>.",
         table: {
           headers: ["Method", "Path", "Description"],
           rows: [
@@ -972,6 +975,12 @@ GET ${API}/countries/{code}/iban-format`,
             ["GET", "/v1/usage/endpoints", "Per-endpoint request counts and error rates."],
             ["GET", "/v1/usage/daily", "Daily request counts for charts."],
             ["GET", "/v1/usage/keys", "Per-API-key request totals."],
+            ["GET", "/v1/billing", "Subscription, plan and entitlement summary."],
+            ["POST", "/v1/billing/checkout", "Start a subscription checkout for a plan (OWNER only)."],
+            ["POST", "/v1/billing/subscriptions/{subscriptionId}/confirm", "Confirm a checkout after approval (OWNER only)."],
+            ["POST", "/v1/billing/subscriptions/{subscriptionId}/revise", "Upgrade or downgrade a subscription (OWNER only)."],
+            ["POST", "/v1/billing/subscriptions/{subscriptionId}/cancel", "Cancel a subscription (OWNER only)."],
+            ["GET", "/v1/billing/invoices?subscription_id=", "Invoices of a subscription."],
           ],
         },
       },
@@ -984,83 +993,228 @@ GET ${API}/countries/{code}/iban-format`,
   },
   {
     slug: "sdks",
-    title: "SDKs",
-    description: "Official SDKs for JavaScript, Python, Java, Go and PHP.",
+    title: "SDKs & client libraries",
+    description:
+      "Dependency-free reference clients for TypeScript and Python, plus standard-library examples for Java, Go and PHP — with auth, timeouts, retries and typed errors built in.",
     group: "reference",
     sections: [
       {
-        id: "javascript",
-        title: "JavaScript / TypeScript",
+        id: "clients",
+        title: "Client libraries",
+        body: "The API is plain HTTPS plus JSON, so any HTTP client works. The reference clients below only add what every integration eventually needs: Bearer authentication, per-attempt timeouts, retries with exponential backoff and errors that carry the request id. They are single dependency-free files — copy one into your project rather than installing a package.",
+        table: {
+          headers: ["Language", "Client", "Runtime", "File"],
+          rows: [
+            ["TypeScript / JavaScript", "FinCode class", "Node 18+, Bun, Deno, browsers", "fincode.ts"],
+            ["Python", "FinCode class", "Python 3.9+ (standard library)", "fincode.py"],
+            ["Java", "HTTP example", "JDK 11+ (java.net.http)", "—"],
+            ["Go", "HTTP example", "Go 1.20+ (net/http)", "—"],
+            ["PHP", "HTTP example", "PHP 8+ (curl)", "—"],
+          ],
+        },
+      },
+      {
+        id: "download",
+        title: "Download",
+        body: "Both reference clients track API V1 and ship with the documentation. Save them into your source tree and import them directly — no package manager involved.",
+        code: [
+          code(
+            "bash",
+            `# TypeScript / JavaScript
+curl -O ${SITE}/sdk/fincode.ts
+
+# Python
+curl -O ${SITE}/sdk/fincode.py`,
+          ),
+        ],
+      },
+      {
+        id: "quickstart",
+        title: "Quickstart",
+        body: "Construct one client per process and reuse it. Every call resolves to the { data, meta } envelope; meta.request_id identifies the call in support conversations.",
         code: [
           code(
             "ts",
-            `import { FinCode } from "@fincode/javascript";
+            `import { FinCode } from "./fincode";
 
 const fincode = new FinCode({ apiKey: process.env.FINCODE_API_KEY! });
 
-const result = await fincode.iban.validate("DE89370400440532013000");
-if (result.valid) {
-  console.log(result.bank_code); // "37040044"
-}`,
+const { data, meta } = await fincode.iban.validate("DE89370400440532013000");
+
+console.log(data.valid);       // true
+console.log(data.bank_code);   // "37040044"
+console.log(meta.request_id);  // "req_1a2b3c4d"`,
+            "TypeScript",
           ),
-        ],
-      },
-      {
-        id: "python",
-        title: "Python",
-        code: [
           code(
             "python",
-            `from fincode import FinCode
+            `import os
+from fincode import FinCode
 
 fincode = FinCode(api_key=os.environ["FINCODE_API_KEY"])
 
-result = fincode.swift.get("ICBKCNBJ")
-print(result.bank.name_en)  # Industrial and Commercial Bank of China`,
+response = fincode.iban.validate("DE89370400440532013000")
+
+print(response.data["valid"])      # True
+print(response.data["bank_code"])  # "37040044"
+print(response.request_id)         # "req_1a2b3c4d"`,
+            "Python",
           ),
-        ],
-      },
-      {
-        id: "java",
-        title: "Java",
-        code: [
           code(
             "java",
-            `FinCodeClient client = FinCodeClient.builder()
-    .apiKey(System.getenv("FINCODE_API_KEY"))
+            `HttpRequest request = HttpRequest.newBuilder()
+    .uri(URI.create(BASE_URL + "/swift/ICBKCNBJ"))
+    .header("Authorization", "Bearer " + System.getenv("FINCODE_API_KEY"))
+    .timeout(Duration.ofSeconds(10))
+    .GET()
     .build();
 
-IbanValidation result = client.iban().validate("DE89370400440532013000");
-System.out.println(result.isValid());`,
+HttpResponse<String> response = HttpClient.newHttpClient()
+    .send(request, HttpResponse.BodyHandlers.ofString());`,
+            "Java",
           ),
-        ],
-      },
-      {
-        id: "go",
-        title: "Go",
-        code: [
           code(
             "go",
-            `client := fincode.New(os.Getenv("FINCODE_API_KEY"))
+            `req, err := http.NewRequest(http.MethodGet, baseURL+"/swift/ICBKCNBJ", nil)
+if err != nil {
+    log.Fatal(err)
+}
+req.Header.Set("Authorization", "Bearer "+os.Getenv("FINCODE_API_KEY"))
 
-result, err := client.Iban.Validate(ctx, "DE89370400440532013000")
-if err != nil { log.Fatal(err) }
-fmt.Println(result.BankCode)`,
+client := &http.Client{Timeout: 10 * time.Second}
+resp, err := client.Do(req)
+if err != nil {
+    log.Fatal(err)
+}
+defer resp.Body.Close()`,
+            "Go",
+          ),
+          code(
+            "php",
+            `$ch = curl_init(BASE_URL . "/swift/ICBKCNBJ");
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT => 10,
+    CURLOPT_HTTPHEADER => ["Authorization: Bearer " . getenv("FINCODE_API_KEY")],
+]);
+$body = curl_exec($ch);
+$status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);`,
+            "PHP",
           ),
         ],
       },
       {
-        id: "php",
-        title: "PHP",
+        id: "configuration",
+        title: "Configuration",
+        body: "Only the API key is required. Timeouts and retries have production-friendly defaults, and every option can be overridden per client.",
+        table: {
+          headers: ["Option", "Default", "Description"],
+          rows: [
+            ["apiKey / api_key", "required", "Key with the sk_ prefix, sent as Authorization: Bearer."],
+            ["baseUrl / base_url", API, "Base URL including the version segment."],
+            ["timeoutMs / timeout", "10000 ms", "Per-attempt timeout; a timeout is retried like a network error."],
+            ["maxRetries", "2", "Retries after the first attempt for 429, 502, 503, 504 and network errors."],
+            ["fetch", "globalThis.fetch", "Custom transport for tests or proxies (TypeScript only)."],
+          ],
+        },
+      },
+      {
+        id: "methods",
+        title: "Method reference",
+        body: "Each method maps to one REST endpoint and resolves to { data, meta }. TypeScript uses camelCase, Python uses snake_case; both expose the same arguments. For anything else, call request(method, path, options) directly.",
+        table: {
+          headers: ["Method", "REST endpoint"],
+          rows: [
+            ["fincode.iban.validate(iban)", "GET /v1/iban/validate?iban="],
+            ["fincode.iban.lookup(iban)", "GET /v1/iban/{iban}"],
+            ["fincode.swift.get(code)", "GET /v1/swift/{code}"],
+            ["fincode.routing.get(number)", "GET /v1/routing/{number}"],
+            ["fincode.sortCode.get(code) / sort_code", "GET /v1/sort-code/{code}"],
+            ["fincode.bsb.get(code)", "GET /v1/bsb/{code}"],
+            ["fincode.ifsc.get(code)", "GET /v1/ifsc/{code}"],
+            ["fincode.cnaps.get(code)", "GET /v1/cnaps/{code}"],
+            ["fincode.bin.get(bin)", "GET /v1/bin/{bin}"],
+            ["fincode.banks.list({ country, cursor, limit })", "GET /v1/banks"],
+            ["fincode.banks.search(q, { country, cursor, limit })", "GET /v1/banks/search?q="],
+            ["fincode.banks.get(id)", "GET /v1/banks/{id}"],
+            ["fincode.banks.bySlug(slug) / by_slug", "GET /v1/banks/by-slug/{slug}"],
+            ["fincode.banks.branches(id, { q, city, cursor, limit })", "GET /v1/banks/{id}/branches"],
+            ["fincode.countries.list() / get(code)", "GET /v1/countries, /v1/countries/{code}"],
+            ["fincode.countries.ibanFormat(code) / iban_format", "GET /v1/countries/{code}/iban-format"],
+            ["fincode.lookup.get(q)", "GET /v1/lookup?q="],
+          ],
+        },
+      },
+      {
+        id: "errors",
+        title: "Errors and retries",
+        body: "Non-2xx responses raise FinCodeError with the machine-readable code, the HTTP status and the request id. 429, 502, 503 and 504 — and network failures or timeouts — are retried with exponential backoff (honouring Retry-After) before the error surfaces. Other 4xx validation errors are never retried.",
         code: [
           code(
-            "php",
-            `$client = new FinCode\\Client(getenv("FINCODE_API_KEY"));
+            "ts",
+            `import { FinCodeError } from "./fincode";
 
-$result = $client->iban->validate("DE89370400440532013000");
-echo $result->valid ? "valid" : "invalid";`,
+try {
+  await fincode.swift.get("NOPE");
+} catch (error) {
+  if (error instanceof FinCodeError) {
+    console.error(error.code);       // "INVALID_SWIFT"
+    console.error(error.status);     // 422
+    console.error(error.requestId);  // "req_5e6f7a8b"
+  }
+  throw error;
+}`,
+            "TypeScript",
+          ),
+          code(
+            "python",
+            `from fincode import FinCodeError
+
+try:
+    fincode.swift.get("NOPE")
+except FinCodeError as error:
+    print(error.code)        # "INVALID_SWIFT"
+    print(error.status)      # 422
+    print(error.request_id)  # "req_5e6f7a8b"`,
+            "Python",
           ),
         ],
+      },
+      {
+        id: "pagination",
+        title: "Pagination",
+        body: "Directory collections are cursor paginated: pass meta.next_cursor back as cursor, and stop when it is null. The Python client also exposes an iter_pages helper.",
+        code: [
+          code(
+            "ts",
+            `const banks = [];
+let cursor: string | null | undefined;
+
+do {
+  const page = await fincode.banks.list({ country: "US", limit: 100, cursor });
+  banks.push(...page.data);
+  cursor = page.meta.next_cursor;
+} while (cursor);`,
+            "TypeScript",
+          ),
+          code(
+            "python",
+            `for page in fincode.iter_pages("/banks", {"country": "US"}):
+    for bank in page.data:
+        print(bank["name_en"])`,
+            "Python",
+          ),
+        ],
+      },
+      {
+        id: "request-ids",
+        title: "Request IDs",
+        body: "Every response — success or failure — carries a request id in meta.request_id or error.request_id. Log it next to your own correlation id: it links the call to the server-side log entry, which is what support needs to reproduce an issue.",
+      },
+      {
+        id: "versioning",
+        title: "Versioning and support",
+        body: "The clients target API V1 (base path /v1). Payloads are additive within V1 — new fields may appear at any time — so read by key instead of by position and ignore unknown fields. Breaking changes ship under a new version prefix. Java, Go and PHP wrappers are on the roadmap; until then the standard-library examples above need no dependency.",
       },
     ],
   },

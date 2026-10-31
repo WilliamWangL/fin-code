@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { Breadcrumb, type BreadcrumbItem } from "@/components/breadcrumb";
-import { CodeBlock } from "@/components/code-block";
+import { CodeTabs } from "@/components/code-tabs";
 import { DocsShell } from "@/components/docs-shell";
 import { JsonLd } from "@/components/json-ld";
 import {
@@ -107,14 +107,13 @@ export default async function DocPage({
               </p>
             )}
             {section.code && (
-              <div className="mt-4 space-y-4">
-                {section.code.map((block, index) => (
-                  <CodeBlock
-                    key={`${section.id}-code-${index}`}
-                    code={block.code}
-                    language={block.label ?? block.language}
-                  />
-                ))}
+              <div className="mt-4">
+                <CodeTabs
+                  blocks={section.code.map((block) => ({
+                    label: block.label ?? block.language,
+                    code: block.code,
+                  }))}
+                />
               </div>
             )}
             {section.table && (
