@@ -3,7 +3,7 @@
 import { Search, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -17,16 +17,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
-import { matchSegments, searchBanks, type BankSearchDoc } from "@/lib/banks-search";
+import type { BankRow } from "@/lib/bank-rows";
+import { matchSegments, searchBanks } from "@/lib/banks-search";
 import { cn } from "@/lib/utils";
-
-/** Directory row: searchable fields plus the pre-rendered display values. */
-export interface BankRow extends BankSearchDoc {
-  countryHref: string;
-  identifiersCount: number;
-  branchesCount: number;
-  primaryIdentifierHref?: string;
-}
 
 export interface BankCountryOption {
   iso2: string;
@@ -183,15 +176,11 @@ function BankDirectoryLive({
   rows,
   countries,
   countryCounts,
-  searchPool,
 }: {
   rows: BankRow[];
   countries: BankCountryOption[];
   /** Full-directory per-country totals; defaults to counting `rows`. */
   countryCounts?: Map<string, number>;
-  /** Full-directory pool that searches and country filters run against;
-   * defaults to `rows` (the spotlight list) when not provided. */
-  searchPool?: BankRow[];
 }) {
   const t = useTranslations("banks");
   const searchParams = useSearchParams();
@@ -203,6 +192,24 @@ function BankDirectoryLive({
   const [query, setQuery] = useState(urlQuery);
   const [country, setCountry] = useState(urlCountry);
   const syncedQs = useRef<string | null>(null);
+
+  // ── Search pool ───────────────────────────────────────────────────────
+  // The full directory (~4,150 rows) used to be serialised into the page
+  // payload, which inflated the HTML to ~2 MB for 39 rendered rows. It is
+  // fetched once, on first interaction, from the static index route instead.
+  const [pool, setPool] = useState<BankRow[] | null>(null);
+  const poolRequested = useRef(false);
+  const loadPool = useCallback(() => {
+    if (poolRequested.current) return;
+    poolRequested.current = true;
+    fetch("/api/directory/banks-index")
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .then((payload: { rows?: BankRow[] }) => setPool(payload.rows ?? []))
+      .catch(() => setPool([]));
+  }, []);
 
   // Mirror the filters into the address bar (shareable links) without
   // pushing history entries. Debounced so typing does not rewrite per key.
@@ -231,20 +238,25 @@ function BankDirectoryLive({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlQuery, urlCountry]);
 
+  // A deep link (?q= / ?country=) needs the full pool straight away.
+  useEffect(() => {
+    if (urlQuery || urlCountry) loadPool();
+  }, [urlQuery, urlCountry, loadPool]);
+
   const filtered = useMemo(() => {
-    const pool = searchPool ?? rows;
+    const source = pool ?? rows;
     if (query.trim()) {
-      const scored = searchBanks(pool, query, country || undefined);
+      const scored = searchBanks(source, query, country || undefined);
       return scored ? scored.map((item) => item.doc) : [];
     }
     if (country) {
       // Biggest institutions first, in line with the spotlight ordering.
-      return [...pool]
+      return [...source]
         .filter((row) => row.countryIso2 === country)
         .sort((a, b) => b.branchesCount - a.branchesCount);
     }
     return rows;
-  }, [rows, searchPool, query, country]);
+  }, [rows, pool, query, country]);
 
   const visible =
     filtered.length > MAX_MATCH_ROWS ? filtered.slice(0, MAX_MATCH_ROWS) : filtered;
@@ -284,6 +296,7 @@ function BankDirectoryLive({
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("searchPlaceholder")}
             aria-label={t("searchPlaceholder")}
+            onFocus={loadPool}
             className="pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
           />
           {query ? (
@@ -299,13 +312,20 @@ function BankDirectoryLive({
         </div>
         {filtering ? (
           <p className="text-sm text-muted-foreground" aria-live="polite">
-            {t("matchedCount", { count: filtered.length, total: searchPool?.length ?? rows.length })}
+            {t("matchedCount", { count: filtered.length, total: (pool ?? rows).length })}
           </p>
         ) : null}
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => setCountry("")} className={chipClass(!country)}>
+        <button
+          type="button"
+          onClick={() => {
+            loadPool();
+            setCountry("");
+          }}
+          className={chipClass(!country)}
+        >
           {t("filterByCountry")}
           <span className="text-xs opacity-70">{digits.format(totalCount)}</span>
         </button>
@@ -313,7 +333,10 @@ function BankDirectoryLive({
           <button
             key={option.iso2}
             type="button"
-            onClick={() => setCountry(country === option.iso2 ? "" : option.iso2)}
+            onClick={() => {
+              loadPool();
+              setCountry(country === option.iso2 ? "" : option.iso2);
+            }}
             className={chipClass(country === option.iso2)}
           >
             {option.name}
@@ -351,29 +374,22 @@ function BankDirectoryLive({
 }
 
 /**
- * Static bank directory. The prerendered HTML carries the full row list;
+ * Static bank directory. The prerendered HTML carries the spotlight rows;
  * once hydrated the client component adds name/code search, country filters
- * and keystroke highlighting over the same data - no API round-trip.
+ * and keystroke highlighting, loading the full pool on first interaction.
  */
 export function BankDirectory({
   rows,
   countries,
   countryCounts,
-  searchPool,
 }: {
   rows: BankRow[];
   countries: BankCountryOption[];
   countryCounts?: Map<string, number>;
-  searchPool?: BankRow[];
 }) {
   return (
     <Suspense fallback={<DirectoryFallback rows={rows} />}>
-      <BankDirectoryLive
-        rows={rows}
-        countries={countries}
-        countryCounts={countryCounts}
-        searchPool={searchPool}
-      />
+      <BankDirectoryLive rows={rows} countries={countries} countryCounts={countryCounts} />
     </Suspense>
   );
 }

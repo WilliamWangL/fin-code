@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { BankDirectory, type BankRow, type BankCountryOption } from "@/components/bank-directory";
+import { BankDirectory, type BankCountryOption } from "@/components/bank-directory";
 import type { BreadcrumbItem } from "@/components/breadcrumb";
 import { JsonLd } from "@/components/json-ld";
 import { PageHeader } from "@/components/page-header";
 import { Link } from "@/i18n/navigation";
-import { countryByIso2, formatIdentifier, hrefForIdentifier, institutions } from "@/lib/data";
+import { institutionToRow, type BankRow } from "@/lib/bank-rows";
+import { countryByIso2, institutions } from "@/lib/data";
 import { branchCountOf, type Institution } from "@/lib/data/types";
 import { alternatesFor, siteConfig } from "@/lib/site";
 import { breadcrumbListJsonLd } from "@/lib/structured-data";
@@ -15,31 +16,6 @@ import { breadcrumbListJsonLd } from "@/lib/structured-data";
  * directory (every indexed institution) stays searchable via the site search
  * and the per-country pages. */
 const TOP_BANKS_PER_COUNTRY = 3;
-
-function toRow(institution: Institution): BankRow {
-  const country = countryByIso2[institution.country];
-  const primary =
-    institution.identifiers.find((item) => item.type === "SWIFT") ??
-    institution.identifiers[0];
-  return {
-    slug: institution.slug,
-    nameEn: institution.nameEn,
-    shortName: institution.shortName,
-    legalName: institution.legalName,
-    nameLocal: institution.nameLocal,
-    countryName: country?.nameEn ?? institution.country,
-    countryIso2: institution.country,
-    countryHref: `/countries/${institution.country}`,
-    identifiersCount: institution.identifiers.length,
-    branchesCount: branchCountOf(institution),
-    primaryIdentifier: primary
-      ? formatIdentifier(primary.type, primary.value)
-      : undefined,
-    primaryIdentifierHref: primary
-      ? hrefForIdentifier(primary.type, primary.value)
-      : undefined,
-  };
-}
 
 function topBanksByCountry(): { top: Institution[]; counts: Map<string, number> } {
   const grouped = new Map<string, Institution[]>();
@@ -86,11 +62,10 @@ export default async function BanksPage({
   const common = await getTranslations({ locale, namespace: "common" });
 
   const { top, counts: countryCounts } = topBanksByCountry();
-  // Searches and country chips run over every indexed institution (long tail
-  // included); the table itself only spotlights the top banks.
-  const searchPool = institutions.map(toRow);
-
-  const rows: BankRow[] = top.map(toRow);
+  // Search and country filters run over the full directory, which the client
+  // directory fetches on demand (/api/directory/banks-index) instead of
+  // shipping ~4,150 rows inside this page's payload.
+  const rows: BankRow[] = top.map(institutionToRow);
 
   const countries: BankCountryOption[] = Array.from(countryCounts.keys())
     .map((iso2) => ({ iso2, name: countryByIso2[iso2]?.nameEn ?? iso2 }))
@@ -114,12 +89,7 @@ export default async function BanksPage({
           {t("topByCountry")}
         </h2>
         <div className="mt-6">
-          <BankDirectory
-            rows={rows}
-            countries={countries}
-            countryCounts={countryCounts}
-            searchPool={searchPool}
-          />
+          <BankDirectory rows={rows} countries={countries} countryCounts={countryCounts} />
         </div>
       </section>
 

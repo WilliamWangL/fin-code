@@ -98,11 +98,29 @@ export async function IdentifierDetail({ locale, config, entry }: IdentifierDeta
     { label: displayValue },
   ];
 
-  // Related identifiers of the same type in the same country (other institutions).
+  // Related identifiers of the same type in the same country (other institutions);
+  // same-city records surface first so the block reflects the closest matches.
   const related = (await import("@/lib/data"))
     .listIdentifiersByCountry(identifier.type, institution.country)
     .filter((candidate) => candidate.institution.slug !== institution.slug)
+    .sort(
+      (a, b) =>
+        Number(b.identifier.city === identifier.city) -
+        Number(a.identifier.city === identifier.city),
+    )
     .slice(0, 6);
+
+  // Previous/next of the same type: without them a long-tail code could only be
+  // discovered through the sitemap, never by following links.
+  const siblings = (await import("@/lib/data"))
+    .listIdentifiers(identifier.type)
+    .slice()
+    .sort((a, b) => a.identifier.value.localeCompare(b.identifier.value));
+  const position = siblings.findIndex(
+    (candidate) => candidate.identifier.value === identifier.value,
+  );
+  const previous = position > 0 ? siblings[position - 1] : undefined;
+  const next = position >= 0 ? siblings[position + 1] : undefined;
 
   const faqItems = [
     { question: tool("detailFaq1Q"), answer: tool("detailFaq1A") },
@@ -363,6 +381,48 @@ export async function IdentifierDetail({ locale, config, entry }: IdentifierDeta
             ))}
           </ul>
         </section>
+      )}
+
+      {/* ── Neighbouring codes ─────────────────────────────────────────── */}
+      {(previous || next) && (
+        <nav aria-label={typeLabel} className="mt-10 grid gap-3 sm:grid-cols-2">
+          {previous ? (
+            <Link
+              href={hrefForIdentifier(previous.identifier.type, previous.identifier.value)}
+              rel="prev"
+              className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
+            >
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                {common("previousCode")}
+              </span>
+              <span className="mt-1 block font-mono text-sm font-medium">
+                {formatIdentifier(previous.identifier.type, previous.identifier.value)}
+              </span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {previous.institution.nameEn}
+              </span>
+            </Link>
+          ) : (
+            <span aria-hidden />
+          )}
+          {next ? (
+            <Link
+              href={hrefForIdentifier(next.identifier.type, next.identifier.value)}
+              rel="next"
+              className="rounded-xl border border-border bg-card p-4 text-right transition-colors hover:border-primary/50"
+            >
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                {common("nextCode")}
+              </span>
+              <span className="mt-1 block font-mono text-sm font-medium">
+                {formatIdentifier(next.identifier.type, next.identifier.value)}
+              </span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {next.institution.nameEn}
+              </span>
+            </Link>
+          ) : null}
+        </nav>
       )}
 
       {/* ── FAQ ────────────────────────────────────────────────────────── */}

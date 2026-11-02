@@ -34,12 +34,8 @@ import {
   type InstitutionType,
 } from "@/lib/data/types";
 import { identifierTypeLabel } from "@/lib/directory";
-import {
-  decodeSlug,
-  fetchBankBranches,
-  fetchBankBySlug,
-  type ApiBranch,
-} from "@/lib/directory-api";
+import { decodeSlug, fetchBankBranches, fetchBankBySlug, type ApiBranch } from "@/lib/directory-api";
+import { readBranchSnapshot, SSR_BRANCH_ROWS } from "@/lib/branch-snapshot";
 import { sourceById } from "@/lib/data/sources";
 import { alternatesFor, siteConfig } from "@/lib/site";
 import { breadcrumbListJsonLd } from "@/lib/structured-data";
@@ -211,17 +207,25 @@ export default async function BankDetailPage({
     : `/banks/search?q=${encodeURIComponent(view.nameEn)}&limit=5`;
   const apiSnippet = `curl -s "${siteConfig.apiBaseUrl}${apiPath}" \\\n  -H "Authorization: Bearer sk_xxx"`;
 
-  // Server-rendered head office row; the explorer replaces it with the full
-  // snapshot once the static asset is fetched.
-  const initialBranches: SnapshotBranch[] = view.branches.slice(0, 1).map((branch) => ({
-    name: branch.name,
-    nameLocal: branch.nameLocal ?? null,
-    city: branch.city || null,
-    state: null,
-    address: branch.address ?? null,
-    postalCode: null,
-    code: null,
-  }));
+  // Server-rendered branch rows: the explorer used to mount with a single head
+  // office row and load the rest client-side, so the HTML carried almost no
+  // branch content. The first slice of the snapshot is rendered here instead.
+  const snapshotRows = view.branchSnapshotKey
+    ? await readBranchSnapshot(view.branchSnapshotKey)
+    : [];
+  const initialBranches: SnapshotBranch[] = (
+    snapshotRows.length > 0
+      ? snapshotRows
+      : view.branches.map((branch) => ({
+          name: branch.name,
+          nameLocal: branch.nameLocal ?? null,
+          city: branch.city || null,
+          state: null,
+          address: branch.address ?? null,
+          postalCode: null,
+          code: null,
+        }))
+  ).slice(0, SSR_BRANCH_ROWS);
 
   const breadcrumbs: BreadcrumbItem[] = [
     { label: common("breadcrumbHome"), href: "/" },
