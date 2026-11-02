@@ -14,12 +14,15 @@ export interface DocCode {
   code: string;
 }
 
+/** A table cell: plain text, or text that links somewhere. */
+export type DocCell = string | { text: string; href: string };
+
 export interface DocSection {
   id: string;
   title: string;
   body?: string;
   code?: DocCode[];
-  table?: { headers: string[]; rows: string[][] };
+  table?: { headers: string[]; rows: DocCell[][] };
 }
 
 export interface DocPage {
@@ -32,6 +35,14 @@ export interface DocPage {
 
 const API = siteConfig.apiBaseUrl;
 const SITE = siteConfig.url;
+
+/** Official client libraries, each published as its own repository. */
+const SDK_REPOS = {
+  python: "https://github.com/WilliamWangL/fincode-python",
+  java: "https://github.com/WilliamWangL/fincode-java",
+  go: "https://github.com/WilliamWangL/fincode-go",
+  php: "https://github.com/WilliamWangL/fincode-php",
+} as const;
 
 function code(language: string, content: string, label?: string): DocCode {
   const trimmed = content.replace(/^\n+|\n+$/g, "");
@@ -995,36 +1006,73 @@ GET ${API}/countries/{code}/iban-format`,
     slug: "sdks",
     title: "SDKs & client libraries",
     description:
-      "Dependency-free reference clients for TypeScript and Python, plus standard-library examples for Java, Go and PHP — with auth, timeouts, retries and typed errors built in.",
+      "Official client libraries for Python, Java, Go and PHP, plus a zero-dependency TypeScript client — Bearer authentication, per-attempt timeouts, retries and typed errors built in.",
     group: "reference",
     sections: [
       {
         id: "clients",
         title: "Client libraries",
-        body: "The API is plain HTTPS plus JSON, so any HTTP client works. The reference clients below only add what every integration eventually needs: Bearer authentication, per-attempt timeouts, retries with exponential backoff and errors that carry the request id. They are single dependency-free files — copy one into your project rather than installing a package.",
+        body: "The API is plain HTTPS plus JSON, so any HTTP client works. These libraries only add what every integration eventually needs: Bearer authentication, per-attempt timeouts, retries with exponential backoff honouring Retry-After, and errors that carry the request id. Each client is an independent open-source repository with its own test suite and CI; the TypeScript one also ships as a single file with no dependencies.",
         table: {
-          headers: ["Language", "Client", "Runtime", "File"],
+          headers: ["Language", "Package", "Runtime", "Repository"],
           rows: [
-            ["TypeScript / JavaScript", "FinCode class", "Node 18+, Bun, Deno, browsers", "fincode.ts"],
-            ["Python", "FinCode class", "Python 3.9+ (standard library)", "fincode.py"],
-            ["Java", "HTTP example", "JDK 11+ (java.net.http)", "—"],
-            ["Go", "HTTP example", "Go 1.20+ (net/http)", "—"],
-            ["PHP", "HTTP example", "PHP 8+ (curl)", "—"],
+            [
+              "TypeScript / JavaScript",
+              "fincode.ts",
+              "Node 18+, Bun, Deno, browsers",
+              { text: "fincode.ts (single file)", href: `${SITE}/sdk/fincode.ts` },
+            ],
+            [
+              "Python",
+              "fincode",
+              "Python 3.9+ (standard library)",
+              { text: "WilliamWangL/fincode-python", href: SDK_REPOS.python },
+            ],
+            [
+              "Java",
+              "io.github.williamwangl:fincode-java",
+              "JDK 11+ (JDK HttpClient)",
+              { text: "WilliamWangL/fincode-java", href: SDK_REPOS.java },
+            ],
+            [
+              "Go",
+              "github.com/WilliamWangL/fincode-go",
+              "Go 1.22+ (standard library)",
+              { text: "WilliamWangL/fincode-go", href: SDK_REPOS.go },
+            ],
+            [
+              "PHP",
+              "fincode/fincode-php",
+              "PHP 8.1+ (ext-curl)",
+              { text: "WilliamWangL/fincode-php", href: SDK_REPOS.php },
+            ],
           ],
         },
       },
       {
-        id: "download",
-        title: "Download",
-        body: "Both reference clients track API V1 and ship with the documentation. Save them into your source tree and import them directly — no package manager involved.",
+        id: "install",
+        title: "Install",
+        body: "TypeScript is a single file you copy into your project; the other languages install from GitHub with their native tooling.",
         code: [
           code(
             "bash",
-            `# TypeScript / JavaScript
+            `# TypeScript / JavaScript - single file, no dependencies
 curl -O ${SITE}/sdk/fincode.ts
 
 # Python
-curl -O ${SITE}/sdk/fincode.py`,
+pip install "git+https://github.com/WilliamWangL/fincode-python.git"
+
+# Java - install the client into your local Maven repository
+git clone https://github.com/WilliamWangL/fincode-java.git
+cd fincode-java && mvn install
+
+# Go
+go get github.com/WilliamWangL/fincode-go
+
+# PHP
+composer config repositories.fincode vcs https://github.com/WilliamWangL/fincode-php
+composer require fincode/fincode-php:^1.0`,
+            "bash",
           ),
         ],
       },
@@ -1062,43 +1110,53 @@ print(response.request_id)         # "req_1a2b3c4d"`,
           ),
           code(
             "java",
-            `HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create(BASE_URL + "/swift/ICBKCNBJ"))
-    .header("Authorization", "Bearer " + System.getenv("FINCODE_API_KEY"))
-    .timeout(Duration.ofSeconds(10))
-    .GET()
-    .build();
+            `import io.github.williamwangl.fincode.FinCodeClient;
+import io.github.williamwangl.fincode.FinCodeResponse;
 
-HttpResponse<String> response = HttpClient.newHttpClient()
-    .send(request, HttpResponse.BodyHandlers.ofString());`,
+FinCodeClient fincode = FinCodeClient.builder()
+        .apiKey(System.getenv("FINCODE_API_KEY"))
+        .build();
+
+FinCodeResponse response = fincode.iban().validate("DE89370400440532013000");
+
+System.out.println(response.data().path("valid").asBoolean()); // true
+System.out.println(response.data().path("bank_code").asText()); // "37040044"
+System.out.println(response.requestId().orElse(""));            // "req_1a2b3c4d"`,
             "Java",
           ),
           code(
             "go",
-            `req, err := http.NewRequest(http.MethodGet, baseURL+"/swift/ICBKCNBJ", nil)
-if err != nil {
-    log.Fatal(err)
-}
-req.Header.Set("Authorization", "Bearer "+os.Getenv("FINCODE_API_KEY"))
+            `import (
+    "context"
+    "fmt"
+    "os"
 
-client := &http.Client{Timeout: 10 * time.Second}
-resp, err := client.Do(req)
+    fincode "github.com/WilliamWangL/fincode-go"
+)
+
+client := fincode.New(os.Getenv("FINCODE_API_KEY"))
+
+result, err := client.IBAN.Validate(context.Background(), "DE89370400440532013000")
 if err != nil {
     log.Fatal(err)
 }
-defer resp.Body.Close()`,
+
+fmt.Println(result.Data.Valid)          // true
+fmt.Println(*result.Data.BankCode)      // "37040044"
+fmt.Println(result.Meta.RequestID)      // "req_1a2b3c4d"`,
             "Go",
           ),
           code(
             "php",
-            `$ch = curl_init(BASE_URL . "/swift/ICBKCNBJ");
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_TIMEOUT => 10,
-    CURLOPT_HTTPHEADER => ["Authorization: Bearer " . getenv("FINCODE_API_KEY")],
-]);
-$body = curl_exec($ch);
-$status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);`,
+            `use FinCode\\Client;
+
+$fincode = new Client(getenv("FINCODE_API_KEY"));
+
+$response = $fincode->iban->validate("DE89370400440532013000");
+
+echo $response->data["valid"];        // true
+echo $response->data["bank_code"];    // "37040044"
+echo $response->requestId();          // "req_1a2b3c4d"`,
             "PHP",
           ),
         ],
@@ -1106,7 +1164,7 @@ $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);`,
       {
         id: "configuration",
         title: "Configuration",
-        body: "Only the API key is required. Timeouts and retries have production-friendly defaults, and every option can be overridden per client.",
+        body: "Only the API key is required. Timeouts and retries have production-friendly defaults, and every option can be overridden per client. Java exposes them through FinCodeClient.builder(), Go through fincode.With... options, and PHP through constructor arguments.",
         table: {
           headers: ["Option", "Default", "Description"],
           rows: [
@@ -1121,7 +1179,7 @@ $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);`,
       {
         id: "methods",
         title: "Method reference",
-        body: "Each method maps to one REST endpoint and resolves to { data, meta }. TypeScript uses camelCase, Python uses snake_case; both expose the same arguments. For anything else, call request(method, path, options) directly.",
+        body: "Each method maps to one REST endpoint and resolves to the { data, meta } envelope. TypeScript uses camelCase, Python, Java and Go use the same camelCase names, and PHP exposes them as properties — the arguments are identical everywhere. For anything else, call request(method, path, query, body) directly.",
         table: {
           headers: ["Method", "REST endpoint"],
           rows: [
@@ -1178,12 +1236,35 @@ except FinCodeError as error:
     print(error.request_id)  # "req_5e6f7a8b"`,
             "Python",
           ),
+          code(
+            "go",
+            `var apiErr *fincode.Error
+if errors.As(err, &apiErr) {
+    fmt.Println(apiErr.Code)      // "INVALID_SWIFT"
+    fmt.Println(apiErr.Status)    // 422
+    fmt.Println(apiErr.RequestID) // "req_5e6f7a8b"
+}`,
+            "Go",
+          ),
+          code(
+            "php",
+            `use FinCode\\FinCodeError;
+
+try {
+    $fincode->swift->get("NOPE");
+} catch (FinCodeError $error) {
+    echo $error->errorCode;  // "INVALID_SWIFT"
+    echo $error->status;     // 422
+    echo $error->requestId;  // "req_5e6f7a8b"
+}`,
+            "PHP",
+          ),
         ],
       },
       {
         id: "pagination",
         title: "Pagination",
-        body: "Directory collections are cursor paginated: pass meta.next_cursor back as cursor, and stop when it is null. The Python client also exposes an iter_pages helper.",
+        body: "Directory collections are cursor paginated: pass meta.next_cursor back as cursor, and stop when it is null. Each client ships a helper that walks every page — iter_pages (Python), paginate (Java), Paginate (Go) and iterPages (PHP).",
         code: [
           code(
             "ts",
@@ -1204,6 +1285,17 @@ do {
         print(bank["name_en"])`,
             "Python",
           ),
+          code(
+            "go",
+            `err := fincode.Paginate(ctx, client, "/banks", url.Values{"country": {"US"}}, 100,
+    func(page *fincode.Result[[]fincode.BankListItem]) error {
+        for _, bank := range page.Data {
+            fmt.Println(bank.NameEN)
+        }
+        return nil
+    })`,
+            "Go",
+          ),
         ],
       },
       {
@@ -1214,7 +1306,7 @@ do {
       {
         id: "versioning",
         title: "Versioning and support",
-        body: "The clients target API V1 (base path /v1). Payloads are additive within V1 — new fields may appear at any time — so read by key instead of by position and ignore unknown fields. Breaking changes ship under a new version prefix. Java, Go and PHP wrappers are on the roadmap; until then the standard-library examples above need no dependency.",
+        body: "Every client targets API V1 (base path /v1) and is versioned in lockstep with it. Payloads are additive within V1 — new fields may appear at any time — so read by key instead of by position and ignore unknown fields. Breaking changes ship under a new version prefix, and each repository is tagged per release so you can pin a tag in your lockfile. File issues at the repository of the client you use.",
       },
     ],
   },
