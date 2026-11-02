@@ -136,7 +136,19 @@ export default async function DocPage({
                               cellIndex === 0 ? "font-mono text-xs font-medium" : "text-sm"
                             }
                           >
-                            {cell}
+                            {typeof cell === "string" ? (
+                              cell
+                            ) : (
+                              <a
+                                href={cell.href}
+                                className="underline underline-offset-4 hover:text-foreground"
+                                {...(cell.href.startsWith("http")
+                                  ? { target: "_blank", rel: "noreferrer" }
+                                  : {})}
+                              >
+                                {cell.text}
+                              </a>
+                            )}
                           </TableCell>
                         ))}
                       </TableRow>
