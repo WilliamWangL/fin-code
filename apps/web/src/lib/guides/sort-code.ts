@@ -4,6 +4,7 @@ const guide: Guide = {
   slug: "sort-code",
   family: "SORT_CODE",
   reviewed: "2026-11-03",
+  related: ["bank-identifier-guide", "bsb-number", "routing-number"],
   en: {
     title: "UK sort codes: format, account pairing and the rails behind them",
     description:

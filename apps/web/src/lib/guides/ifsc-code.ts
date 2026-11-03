@@ -4,6 +4,7 @@ const guide: Guide = {
   slug: "ifsc-code",
   family: "IFSC",
   reviewed: "2026-11-03",
+  related: ["bank-identifier-guide", "cnaps-code", "swift-bic-code"],
   en: {
     title: "IFSC codes explained: structure, MICR and how to verify one",
     description:

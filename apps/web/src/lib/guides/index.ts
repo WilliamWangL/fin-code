@@ -34,6 +34,32 @@ export function guideForFamily(family: string): Guide | undefined {
   return guides.find((guide) => guide.family === family && !guide.featured);
 }
 
+/**
+ * Guides to offer at the end of `guide`, most relevant first.
+ *
+ * Order comes from the guide's own `related` list rather than the declaration
+ * order of `guides`: a reader finishing the IFSC page needs the Chinese and
+ * cross-border codes, not whichever guide happens to sit next in the array.
+ * Unknown or self-referencing slugs are dropped, and the remaining slots are
+ * filled from declaration order so the block is never short.
+ */
+export function relatedGuides(guide: Guide, limit = 3): Guide[] {
+  const picked = (guide.related ?? [])
+    .map((slug) => guideBySlug(slug))
+    .filter(
+      (candidate): candidate is Guide =>
+        candidate !== undefined && candidate.slug !== guide.slug,
+    );
+
+  const fill = guides.filter(
+    (candidate) =>
+      candidate.slug !== guide.slug &&
+      !picked.some((pickedGuide) => pickedGuide.slug === candidate.slug),
+  );
+
+  return [...picked, ...fill].slice(0, limit);
+}
+
 /** Body for the active locale; unknown locales fall back to English. */
 export function guideBody(guide: Guide, locale: string): GuideBody {
   return guideLocale(locale) === "zh" ? guide.zh : guide.en;

@@ -4,6 +4,7 @@ const guide: Guide = {
   slug: "cnaps-code",
   family: "CNAPS",
   reviewed: "2026-11-03",
+  related: ["bank-identifier-guide", "ifsc-code", "swift-bic-code"],
   en: {
     title: "CNAPS codes: reading a Chinese bank branch number",
     description:

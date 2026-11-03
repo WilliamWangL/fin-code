@@ -4,6 +4,7 @@ const guide: Guide = {
   slug: "bank-identifier-guide",
   featured: true,
   reviewed: "2026-11-03",
+  related: ["swift-bic-code", "sort-code", "routing-number"],
   en: {
     title: "How bank identifiers work: SWIFT, IBAN and local clearing codes",
     description:

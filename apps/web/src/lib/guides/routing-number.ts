@@ -4,6 +4,7 @@ const guide: Guide = {
   slug: "routing-number",
   family: "ABA_ROUTING",
   reviewed: "2026-11-03",
+  related: ["bank-identifier-guide", "swift-bic-code", "sort-code"],
   en: {
     title: "US ABA routing numbers: the checksum, and Fedwire versus ACH",
     description:
