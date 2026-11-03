@@ -569,10 +569,19 @@ class ApiContractTest {
         mockMvc.perform(get("/v1/iban/DE16200700000532013000"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.bank.swift_code").value("DEUTDEHH"));
+        mockMvc.perform(get("/v1/sort-code/20-00-00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sort_code").value("200000"));
+        mockMvc.perform(get("/v1/bsb/062-001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.bsb").value("062001"));
+        mockMvc.perform(get("/v1/cnaps/102100099996"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cnaps").value("102100099996"));
 
         // The anonymous bucket is 10 lookups per minute per IP; this test
         // exhausts it, so it must stay the only anonymous caller in the suite.
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 3; i++) {
             mockMvc.perform(get("/v1/swift/ICBKCNBJ"))
                     .andExpect(status().isOk());
         }
