@@ -73,7 +73,21 @@ export async function generateMetadata({
       country: country?.nameEn ?? institution.country,
     }),
     alternates: alternatesFor(locale, `/banks/${institution.slug}`),
+    ...(isLongTailSlug(institution.slug)
+      ? { robots: { index: false, follow: true } }
+      : {}),
   };
+}
+
+/**
+ * Institution records imported from the CNAPS dataset use the Chinese
+ * registered name as their slug - about 3,500 of 4,150 rows, percent-encoded in
+ * the URL. They hold real branch and code data but individually they are the
+ * weakest pages on the site, so they stay reachable (follow) while being kept
+ * out of the index until the domain can carry them.
+ */
+function isLongTailSlug(slug: string): boolean {
+  return !/^[A-Za-z0-9._~-]+$/.test(slug);
 }
 
 /** Bare hostname for display; null when the record has no usable website. */

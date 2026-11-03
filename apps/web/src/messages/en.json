@@ -104,6 +104,8 @@
     "bankDirectoryDesc": "Browse financial institutions by country",
     "countryDirectory": "Country Directory",
     "countryDirectoryDesc": "Banking identifiers and IBAN formats by country",
+    "guides": "Guides",
+    "guidesDesc": "How bank routing codes work, explained",
     "api": "API",
     "documentation": "Documentation",
     "apiReference": "API Reference",
@@ -550,6 +552,21 @@
     "feature4": "SDKs for JavaScript, Python, Java, Go and PHP",
     "docsTitle": "Documentation",
     "docsSubtitle": "Guides and reference for every part of the API."
+  },
+  "guides": {
+    "metaTitle": "Guides — How Bank Routing Codes Work",
+    "metaDescription": "Plain-language guides to SWIFT/BIC, IFSC, sort code, BSB, ABA routing and CNAPS: what each code means, which payment rail uses it, and how to verify one before sending.",
+    "title": "Guides",
+    "subtitle": "How bank routing codes work, and how to use them without a failed payment.",
+    "indexIntro": "Six code families cover almost every bank transfer in the world. These guides explain what each one identifies, which rail reads it, and what to check before the money leaves your account.",
+    "startHere": "Start here",
+    "readGuide": "Read guide",
+    "onThisPage": "On this page",
+    "lastReviewed": "Last reviewed {date}",
+    "faqTitle": "Common questions",
+    "openDirectory": "Browse the {family} directory",
+    "moreGuides": "More guides",
+    "metaTitlePage": "{title} — FinCode Guides"
   },
   "docs": {
     "metaTitle": "API Documentation",

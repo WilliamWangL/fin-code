@@ -31,6 +31,7 @@ import {
 } from "@/lib/data";
 import type { Country } from "@/lib/data/types";
 import { identifierTypeLabel } from "@/lib/directory";
+import { guideBody, guideForFamily } from "@/lib/guides";
 import { ibanSegmentRows } from "@/lib/iban-segments";
 import { paginate } from "@/lib/pagination";
 import { siteConfig } from "@/lib/site";
@@ -77,6 +78,8 @@ export async function CountryDetail({
     : t("countryNoIban", { country: country.nameEn });
 
   const localIdentifier = identifierTypeLabel(common, country.localIdentifierType ?? "SWIFT");
+  const localGuide = guideForFamily(country.localIdentifierType ?? "SWIFT");
+  const localGuideTitle = localGuide ? guideBody(localGuide, locale).title : undefined;
   const faqItems = [
     {
       question: t("faqIbanQ", { country: country.nameEn }),
@@ -255,6 +258,17 @@ export async function CountryDetail({
           </CardContent>
         </Card>
       </div>
+
+      {localGuide && localGuideTitle && (
+        <p className="mt-6 text-sm">
+          <Link
+            href={`/guides/${localGuide.slug}`}
+            className="font-medium text-primary hover:underline"
+          >
+            {localGuideTitle} →
+          </Link>
+        </p>
+      )}
 
       {/* ── Banks in country ──────────────────────────────────────────── */}
       <section aria-labelledby="country-banks" className="mt-10">

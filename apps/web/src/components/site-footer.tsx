@@ -36,6 +36,7 @@ export async function SiteFooter() {
       links: [
         { label: t("footer.bankDirectory"), href: "/banks" },
         { label: t("footer.countryDirectory"), href: "/countries" },
+        { label: t("nav.guides"), href: "/guides" },
         { label: t("footer.pricing"), href: "/pricing" },
       ],
     },

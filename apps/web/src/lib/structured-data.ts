@@ -22,6 +22,44 @@ export type FaqPageJsonLd = {
   }>;
 };
 
+export type ArticleJsonLd = {
+  "@context": "https://schema.org";
+  "@type": "TechArticle";
+  headline: string;
+  description: string;
+  inLanguage: string;
+  dateModified: string;
+  mainEntityOfPage: string;
+  isPartOf: { "@type": "WebSite"; name: string; url: string };
+};
+
+/** TechArticle markup for the editorial guides. */
+export function articleJsonLd({
+  headline,
+  description,
+  locale,
+  path,
+  dateModified,
+}: {
+  headline: string;
+  description: string;
+  locale: string;
+  /** Locale-relative path, e.g. "/guides/swift-bic-code". */
+  path: string;
+  dateModified: string;
+}): ArticleJsonLd {
+  return {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    headline,
+    description,
+    inLanguage: locale,
+    dateModified,
+    mainEntityOfPage: `${siteConfig.url}/${locale}${path}`,
+    isPartOf: { "@type": "WebSite", name: siteConfig.name, url: siteConfig.url },
+  };
+}
+
 /**
  * FAQPage structured data for the Q&A block rendered on detail pages.
  * Blank entries are dropped: an empty Question is invalid and would take the

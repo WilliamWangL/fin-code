@@ -104,6 +104,8 @@
     "bankDirectoryDesc": "按国家/地区浏览金融机构",
     "countryDirectory": "国家/地区目录",
     "countryDirectoryDesc": "各国家/地区银行识别码与 IBAN 格式",
+    "guides": "指南",
+    "guidesDesc": "用大白话讲清银行路由编码",
     "api": "API",
     "documentation": "文档",
     "apiReference": "API 参考",
@@ -550,6 +552,21 @@
     "feature4": "JavaScript、Python、Java、Go 与 PHP SDK",
     "docsTitle": "文档",
     "docsSubtitle": "覆盖 API 各部分的指南与参考。"
+  },
+  "guides": {
+    "metaTitle": "指南 — 银行路由编码到底怎么运作",
+    "metaDescription": "用大白话讲清 SWIFT/BIC、IFSC、Sort Code、BSB、ABA Routing 与 CNAPS：每个编码标识什么、哪条通道用它、付款前如何核验。",
+    "title": "指南",
+    "subtitle": "银行路由编码如何运作，以及怎样避免汇款被退回。",
+    "indexIntro": "六类编码几乎覆盖了全球所有银行转账。这些指南说明每一类标识什么、哪条通道会读取它，以及钱离开账户前应该核对什么。",
+    "startHere": "从这里开始",
+    "readGuide": "阅读指南",
+    "onThisPage": "本页内容",
+    "lastReviewed": "最后核对于 {date}",
+    "faqTitle": "常见问题",
+    "openDirectory": "进入 {family} 目录",
+    "moreGuides": "更多指南",
+    "metaTitlePage": "{title} — FinCode 指南"
   },
   "docs": {
     "metaTitle": "API 文档",
