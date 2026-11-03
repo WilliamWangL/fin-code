@@ -41,6 +41,11 @@ export interface Guide {
   featured?: boolean;
   /** ISO date of the last editorial review, shown to readers. */
   reviewed: string;
+  /**
+   * Slugs of the guides to offer at the end of this one, most relevant first.
+   * Picked by hand because neighbouring families are not interchangeable.
+   */
+  related?: string[];
   en: GuideBody;
   zh: GuideBody;
 }

@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Link } from "@/i18n/navigation";
-import { guideBody, guideBySlug, guideSlugs, guides } from "@/lib/guides";
+import { guideBody, guideBySlug, guideSlugs, relatedGuides } from "@/lib/guides";
 import { identifierTypeConfigs } from "@/lib/directory";
 import { alternatesFor } from "@/lib/site";
 import {
@@ -85,7 +85,7 @@ export default async function GuidePage({
     timeZone: "UTC",
   }).format(new Date(`${guide.reviewed}T00:00:00Z`));
 
-  const related = guides.filter((candidate) => candidate.slug !== guide.slug).slice(0, 3);
+  const related = relatedGuides(guide);
 
   const breadcrumbs: BreadcrumbItem[] = [
     { label: common("breadcrumbHome"), href: "/" },

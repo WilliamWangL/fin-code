@@ -4,6 +4,7 @@ const guide: Guide = {
   slug: "swift-bic-code",
   family: "SWIFT",
   reviewed: "2026-11-03",
+  related: ["bank-identifier-guide", "ifsc-code", "cnaps-code"],
   en: {
     title: "How to read a SWIFT/BIC code",
     description:

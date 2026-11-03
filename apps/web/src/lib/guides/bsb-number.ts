@@ -4,6 +4,7 @@ const guide: Guide = {
   slug: "bsb-number",
   family: "BSB",
   reviewed: "2026-11-03",
+  related: ["bank-identifier-guide", "sort-code", "routing-number"],
   en: {
     title: "Australian BSB numbers: what the six digits tell you",
     description:
