@@ -57,6 +57,7 @@ function buildNavGroups(nav: ReturnType<typeof useTranslations>): NavGroup[] {
       children: [
         { label: nav("bankDirectory"), href: "/banks" },
         { label: nav("countryDirectory"), href: "/countries" },
+        { label: nav("guides"), href: "/guides" },
         { label: nav("pricing"), href: "/pricing" },
       ],
     },

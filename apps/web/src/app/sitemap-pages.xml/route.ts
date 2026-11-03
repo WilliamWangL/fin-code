@@ -1,4 +1,5 @@
 import { docPages } from "@/lib/docs";
+import { guideSlugs } from "@/lib/guides";
 import { buildUrlset, xmlResponse } from "@/lib/sitemap";
 
 export const dynamic = "force-static";
@@ -19,6 +20,7 @@ const STATIC_PATHS = [
   { path: "/countries", priority: 0.8, changefreq: "weekly" as const },
   { path: "/pricing", priority: 0.7, changefreq: "monthly" as const },
   { path: "/developers", priority: 0.8, changefreq: "weekly" as const },
+  { path: "/guides", priority: 0.8, changefreq: "weekly" as const },
   { path: "/docs", priority: 0.8, changefreq: "weekly" as const },
   { path: "/about", priority: 0.5, changefreq: "yearly" as const },
   { path: "/contact", priority: 0.5, changefreq: "yearly" as const },
@@ -30,6 +32,11 @@ const STATIC_PATHS = [
 export function GET() {
   const entries = [
     ...STATIC_PATHS,
+    ...guideSlugs.map((slug) => ({
+      path: `/guides/${slug}`,
+      priority: 0.7,
+      changefreq: "monthly" as const,
+    })),
     // API documentation (api-reference and any future api-* page) stays out
     // of the sitemap.
     ...docPages

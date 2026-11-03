@@ -7,7 +7,14 @@ export const dynamic = "force-static";
 export const revalidate = 86400;
 
 export function GET() {
-  const entries = institutions.map((institution) => {
+  // CNAPS-imported records use their Chinese name as slug and are marked
+  // noindex on the page itself; listing them here would only invite a crawl
+  // that cannot end in an indexed URL.
+  const indexable = institutions.filter((institution) =>
+    /^[A-Za-z0-9._~-]+$/.test(institution.slug),
+  );
+
+  const entries = indexable.map((institution) => {
     const dates = institution.identifiers
       .map((identifier) => sourceById[identifier.sourceId]?.retrievedAt)
       .filter((date): date is string => date !== undefined)

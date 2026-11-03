@@ -6,7 +6,9 @@ import type { BreadcrumbItem } from "@/components/breadcrumb";
 import { IdentifierDirectory } from "@/components/identifier-directory";
 import { JsonLd } from "@/components/json-ld";
 import { PageHeader } from "@/components/page-header";
+import { Link } from "@/i18n/navigation";
 import { buildDirectoryRows, type IdentifierTypeConfig } from "@/lib/directory";
+import { guideBody, guideForFamily } from "@/lib/guides";
 import { alternatesFor } from "@/lib/site";
 import { breadcrumbListJsonLd } from "@/lib/structured-data";
 
@@ -46,6 +48,9 @@ export async function IdentifierDirectoryPage({
     { question: t("detailFaq2Q"), answer: t("detailFaq2A") },
   ];
 
+  const guide = guideForFamily(config.type);
+  const guideTitle = guide ? guideBody(guide, locale).title : undefined;
+
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <PageHeader
@@ -65,6 +70,14 @@ export async function IdentifierDirectoryPage({
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             {t("whatBody")}
           </p>
+          {guide && guideTitle && (
+            <Link
+              href={`/guides/${guide.slug}`}
+              className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+            >
+              {guideTitle} →
+            </Link>
+          )}
         </div>
         <dl className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-card p-6 sm:grid-cols-2 lg:grid-cols-1">
           <div>

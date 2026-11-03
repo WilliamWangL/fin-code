@@ -34,15 +34,11 @@ import {
   type InstitutionType,
 } from "@/lib/data/types";
 import { identifierTypeLabel } from "@/lib/directory";
-import {
-  decodeSlug,
-  fetchBankBranches,
-  fetchBankBySlug,
-  type ApiBranch,
-} from "@/lib/directory-api";
+import { decodeSlug, fetchBankBranches, fetchBankBySlug, type ApiBranch } from "@/lib/directory-api";
+import { readBranchSnapshot, SSR_BRANCH_ROWS } from "@/lib/branch-snapshot";
 import { sourceById } from "@/lib/data/sources";
 import { alternatesFor, siteConfig } from "@/lib/site";
-import { breadcrumbListJsonLd } from "@/lib/structured-data";
+import { breadcrumbListJsonLd, faqPageJsonLd } from "@/lib/structured-data";
 import { cn, firstNonBlank } from "@/lib/utils";
 
 export const revalidate = 86400;
@@ -77,7 +73,21 @@ export async function generateMetadata({
       country: country?.nameEn ?? institution.country,
     }),
     alternates: alternatesFor(locale, `/banks/${institution.slug}`),
+    ...(isLongTailSlug(institution.slug)
+      ? { robots: { index: false, follow: true } }
+      : {}),
   };
+}
+
+/**
+ * Institution records imported from the CNAPS dataset use the Chinese
+ * registered name as their slug - about 3,500 of 4,150 rows, percent-encoded in
+ * the URL. They hold real branch and code data but individually they are the
+ * weakest pages on the site, so they stay reachable (follow) while being kept
+ * out of the index until the domain can carry them.
+ */
+function isLongTailSlug(slug: string): boolean {
+  return !/^[A-Za-z0-9._~-]+$/.test(slug);
 }
 
 /** Bare hostname for display; null when the record has no usable website. */
@@ -211,22 +221,69 @@ export default async function BankDetailPage({
     : `/banks/search?q=${encodeURIComponent(view.nameEn)}&limit=5`;
   const apiSnippet = `curl -s "${siteConfig.apiBaseUrl}${apiPath}" \\\n  -H "Authorization: Bearer sk_xxx"`;
 
-  // Server-rendered head office row; the explorer replaces it with the full
-  // snapshot once the static asset is fetched.
-  const initialBranches: SnapshotBranch[] = view.branches.slice(0, 1).map((branch) => ({
-    name: branch.name,
-    nameLocal: branch.nameLocal ?? null,
-    city: branch.city || null,
-    state: null,
-    address: branch.address ?? null,
-    postalCode: null,
-    code: null,
-  }));
+  // Server-rendered branch rows: the explorer used to mount with a single head
+  // office row and load the rest client-side, so the HTML carried almost no
+  // branch content. The first slice of the snapshot is rendered here instead.
+  const snapshotRows = view.branchSnapshotKey
+    ? await readBranchSnapshot(view.branchSnapshotKey)
+    : [];
+  const initialBranches: SnapshotBranch[] = (
+    snapshotRows.length > 0
+      ? snapshotRows
+      : view.branches.map((branch) => ({
+          name: branch.name,
+          nameLocal: branch.nameLocal ?? null,
+          city: branch.city || null,
+          state: null,
+          address: branch.address ?? null,
+          postalCode: null,
+          code: null,
+        }))
+  ).slice(0, SSR_BRANCH_ROWS);
 
   const breadcrumbs: BreadcrumbItem[] = [
     { label: common("breadcrumbHome"), href: "/" },
     { label: t("title"), href: "/banks" },
     { label: displayName },
+  ];
+
+  // Answers are rendered from this record only, so they stay correct after the
+  // owner edits a code instead of turning into stale template copy.
+  const codeSummary = identifiers
+    .slice(0, 4)
+    .map((identifier) => formatIdentifier(identifier.type, identifier.value))
+    .join(", ");
+  const faqItems = [
+    {
+      question: t("faqIdentifiersQ", { bank: displayName }),
+      answer:
+        identifiers.length > 0
+          ? t("faqIdentifiersA", {
+              bank: displayName,
+              codes: codeSummary,
+              count: identifiers.length,
+            })
+          : t("faqIdentifiersANone", { bank: displayName }),
+    },
+    {
+      question: t("faqBranchesQ", { bank: displayName }),
+      answer: t("faqBranchesA", {
+        bank: displayName,
+        count: branchCount,
+        country: country?.nameEn ?? view.country,
+      }),
+    },
+    ...(headOffice
+      ? [
+          {
+            question: t("faqHqQ", { bank: displayName }),
+            answer: t("faqHqA", {
+              bank: displayName,
+              office: [headOffice.name, headOffice.city].filter(Boolean).join(", "),
+            }),
+          },
+        ]
+      : []),
   ];
 
   // Other institutions in the same country.
@@ -565,7 +622,34 @@ export default async function BankDetailPage({
         </section>
       )}
 
+      {/* ── FAQ ───────────────────────────────────────────────────────── */}
+      <section aria-labelledby="bank-faq" className="mt-16">
+        <h2 id="bank-faq" className="text-xl font-semibold tracking-tight">
+          {t("faqTitle")}
+        </h2>
+        <div className="mt-4 divide-y divide-border rounded-xl border border-border bg-card">
+          {faqItems.map((item) => (
+            <details
+              key={item.question}
+              className="group px-6 py-4 [&_summary::-webkit-details-marker]:hidden"
+            >
+              <summary className="flex cursor-pointer items-center justify-between gap-4 text-sm font-medium">
+                {item.question}
+                <span
+                  className="text-muted-foreground transition-transform group-open:rotate-90"
+                  aria-hidden
+                >
+                  ›
+                </span>
+              </summary>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.answer}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
       <JsonLd data={breadcrumbListJsonLd(breadcrumbs, locale)} />
+      <JsonLd data={faqPageJsonLd(faqItems)} />
       <JsonLd
         data={{
           "@context": "https://schema.org",

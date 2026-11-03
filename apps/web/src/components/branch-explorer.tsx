@@ -16,17 +16,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { normalizeQuery } from "@/lib/banks-search";
+import type { SnapshotBranch } from "@/lib/branch-snapshot";
 
-/** One row of /public/data/branches/{key}.json (written by the export pipeline). */
-export interface SnapshotBranch {
-  name: string;
-  nameLocal: string | null;
-  city: string | null;
-  state: string | null;
-  address: string | null;
-  postalCode: string | null;
-  code: string | null;
-}
+export type { SnapshotBranch };
 
 /** One row of the /api/directory BFF branch page (API SNAKE_CASE fields). */
 interface ApiBranchRow {
