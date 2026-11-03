@@ -29,6 +29,7 @@ import {
   type IdentifierEntry,
 } from "@/lib/data";
 import { sourceById } from "@/lib/data/sources";
+import { breakdownFor } from "@/lib/identifier-breakdown";
 import {
   checkAbaFormat,
   checkBsbFormat,
@@ -38,7 +39,7 @@ import {
   checkSwiftFormat,
 } from "@/lib/identifiers";
 import { alternatesFor, siteConfig } from "@/lib/site";
-import { breadcrumbListJsonLd } from "@/lib/structured-data";
+import { breadcrumbListJsonLd, faqPageJsonLd } from "@/lib/structured-data";
 
 /** Bare hostname for display; null when the record has no usable website. */
 function hostnameOf(url: string): string | null {
@@ -88,6 +89,7 @@ export async function IdentifierDetail({ locale, config, entry }: IdentifierDeta
   const common = await getTranslations({ locale, namespace: "common" });
   const detail = await getTranslations({ locale, namespace: "detail" });
   const tool = await getTranslations({ locale, namespace: `tool.${config.messageNamespace}` });
+  const structure = await getTranslations({ locale, namespace: "breakdown" });
 
   const displayValue = formatIdentifier(identifier.type, identifier.value);
   const formatCheck = formatCheckFor(identifier.type, identifier.value);
@@ -128,6 +130,7 @@ export async function IdentifierDetail({ locale, config, entry }: IdentifierDeta
   ];
 
   const typeLabel = identifierTypeLabel(common, identifier.type);
+  const breakdown = breakdownFor(identifier.type, identifier.value);
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -233,7 +236,9 @@ export async function IdentifierDetail({ locale, config, entry }: IdentifierDeta
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {detail("formatCheck")}
                 </p>
-                <p className="mt-1.5 text-sm">{formatCheck.detail}</p>
+                <p className="mt-1.5 text-sm">
+                  {formatCheck.valid ? detail("formatValid") : detail("formatInvalid")}
+                </p>
               </div>
             )}
 
@@ -307,6 +312,45 @@ export async function IdentifierDetail({ locale, config, entry }: IdentifierDeta
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Code structure ─────────────────────────────────────────────── */}
+      {breakdown && (
+        <section aria-labelledby="code-structure" className="mt-10">
+          <h2 id="code-structure" className="text-xl font-semibold tracking-tight">
+            {structure("title")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {structure(`standards.${breakdown.standardKey}`)}
+          </p>
+          <div className="mt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-32">{common("value")}</TableHead>
+                  <TableHead className="w-40">{common("type")}</TableHead>
+                  <TableHead>{detail("aboutCode")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {breakdown.segments.map((segment, index) => (
+                  <TableRow key={`${segment.labelKey}-${index}`}>
+                    <TableCell className="font-mono text-sm font-semibold">
+                      {segment.value || "—"}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {structure(`labels.${segment.labelKey}`)}
+                    </TableCell>
+                    <TableCell className="text-sm leading-relaxed text-muted-foreground">
+                      {structure(`hints.${segment.hintKey}`)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <p className="mt-3 font-mono text-xs text-muted-foreground">{breakdown.mask}</p>
+        </section>
+      )}
 
       {/* ── All identifiers of this institution ─────────────────────────── */}
       {institution.identifiers.length > 0 && (
@@ -449,6 +493,7 @@ export async function IdentifierDetail({ locale, config, entry }: IdentifierDeta
       </section>
 
       <JsonLd data={breadcrumbListJsonLd(breadcrumbs, locale)} />
+      <JsonLd data={faqPageJsonLd(faqItems)} />
       <JsonLd
         data={{
           "@context": "https://schema.org",

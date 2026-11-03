@@ -12,6 +12,40 @@ export type BreadcrumbListJsonLd = {
   }>;
 };
 
+export type FaqPageJsonLd = {
+  "@context": "https://schema.org";
+  "@type": "FAQPage";
+  mainEntity: Array<{
+    "@type": "Question";
+    name: string;
+    acceptedAnswer: { "@type": "Answer"; text: string };
+  }>;
+};
+
+/**
+ * FAQPage structured data for the Q&A block rendered on detail pages.
+ * Blank entries are dropped: an empty Question is invalid and would take the
+ * whole block out of the rich result.
+ */
+export function faqPageJsonLd(
+  items: ReadonlyArray<{ question: string; answer: string }>,
+): FaqPageJsonLd {
+  const mainEntity = items
+    .map((item) => ({ question: item.question.trim(), answer: item.answer.trim() }))
+    .filter((item) => item.question.length > 0 && item.answer.length > 0)
+    .map((item) => ({
+      "@type": "Question" as const,
+      name: item.question,
+      acceptedAnswer: { "@type": "Answer" as const, text: item.answer },
+    }));
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity,
+  };
+}
+
 /**
  * BreadcrumbList structured data for a page.
  *

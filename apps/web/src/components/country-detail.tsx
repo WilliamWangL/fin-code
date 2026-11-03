@@ -31,9 +31,10 @@ import {
 } from "@/lib/data";
 import type { Country } from "@/lib/data/types";
 import { identifierTypeLabel } from "@/lib/directory";
+import { ibanSegmentRows } from "@/lib/iban-segments";
 import { paginate } from "@/lib/pagination";
 import { siteConfig } from "@/lib/site";
-import { breadcrumbListJsonLd } from "@/lib/structured-data";
+import { breadcrumbListJsonLd, faqPageJsonLd } from "@/lib/structured-data";
 
 /**
  * Shared body of /countries/{iso2} and its paginated continuation pages.
@@ -55,6 +56,7 @@ export async function CountryDetail({
 }) {
   const t = await getTranslations({ locale, namespace: "countries" });
   const common = await getTranslations({ locale, namespace: "common" });
+  const part = await getTranslations({ locale, namespace: "breakdown" });
 
   const format = ibanFormatByCountry[country.iso2];
   const localBanks = institutions.filter(
@@ -73,6 +75,32 @@ export async function CountryDetail({
   const ibanSentence = format
     ? t("countryUsesIban", { length: format.length })
     : t("countryNoIban", { country: country.nameEn });
+
+  const localIdentifier = identifierTypeLabel(common, country.localIdentifierType ?? "SWIFT");
+  const faqItems = [
+    {
+      question: t("faqIbanQ", { country: country.nameEn }),
+      answer: format
+        ? t("faqIbanAYes", {
+            country: country.nameEn,
+            length: format.length,
+            structure: format.structure,
+          })
+        : t("faqIbanANo", { country: country.nameEn, localIdentifier }),
+    },
+    {
+      question: t("faqLocalQ", { country: country.nameEn }),
+      answer: t("faqLocalA", {
+        country: country.nameEn,
+        localIdentifier,
+        count: localBanks.length,
+      }),
+    },
+    {
+      question: t("faqFindQ", { country: country.nameEn }),
+      answer: t("faqFindA", { country: country.nameEn, localIdentifier }),
+    },
+  ];
 
   const basePath = `/countries/${country.iso2}`;
   const breadcrumbs: BreadcrumbItem[] = [
@@ -133,6 +161,45 @@ export async function CountryDetail({
                     </div>
                   )}
                 </dl>
+
+                {/* ── IBAN structure, part by part ────────────────────── */}
+                <div>
+                  <h3 className="text-sm font-semibold tracking-tight">
+                    {t("ibanStructureTitle")}
+                  </h3>
+                  <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+                    {t("ibanLegend")}
+                  </p>
+                  <div className="mt-3">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-24">{t("ibanPosition")}</TableHead>
+                          <TableHead className="w-48">{common("structure")}</TableHead>
+                          <TableHead>{common("value")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {ibanSegmentRows(format, format.example).map((row) => (
+                          <TableRow key={`${row.start}-${row.labelKey}`}>
+                            <TableCell className="font-mono text-xs text-muted-foreground">
+                              {row.length === 1
+                                ? row.start
+                                : `${row.start}–${row.start + row.length - 1}`}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {part(`labels.${row.labelKey}`)}
+                            </TableCell>
+                            <TableCell className="font-mono text-sm font-medium break-all">
+                              {row.value}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
                 <Link
                   href={`/iban/${country.iso2}`}
                   className={buttonVariants({ variant: "outline", size: "sm" })}
@@ -315,7 +382,34 @@ export async function CountryDetail({
         </section>
       )}
 
+      {/* ── FAQ ───────────────────────────────────────────────────────── */}
+      <section aria-labelledby="country-faq" className="mt-16">
+        <h2 id="country-faq" className="text-xl font-semibold tracking-tight">
+          {t("faqTitle", { country: country.nameEn })}
+        </h2>
+        <div className="mt-4 divide-y divide-border rounded-xl border border-border bg-card">
+          {faqItems.map((item) => (
+            <details
+              key={item.question}
+              className="group px-6 py-4 [&_summary::-webkit-details-marker]:hidden"
+            >
+              <summary className="flex cursor-pointer items-center justify-between gap-4 text-sm font-medium">
+                {item.question}
+                <span
+                  className="text-muted-foreground transition-transform group-open:rotate-90"
+                  aria-hidden
+                >
+                  ›
+                </span>
+              </summary>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.answer}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
       <JsonLd data={breadcrumbListJsonLd(breadcrumbs, locale)} />
+      <JsonLd data={faqPageJsonLd(faqItems)} />
       <JsonLd
         data={{
           "@context": "https://schema.org",

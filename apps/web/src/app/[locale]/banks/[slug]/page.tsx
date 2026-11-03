@@ -38,7 +38,7 @@ import { decodeSlug, fetchBankBranches, fetchBankBySlug, type ApiBranch } from "
 import { readBranchSnapshot, SSR_BRANCH_ROWS } from "@/lib/branch-snapshot";
 import { sourceById } from "@/lib/data/sources";
 import { alternatesFor, siteConfig } from "@/lib/site";
-import { breadcrumbListJsonLd } from "@/lib/structured-data";
+import { breadcrumbListJsonLd, faqPageJsonLd } from "@/lib/structured-data";
 import { cn, firstNonBlank } from "@/lib/utils";
 
 export const revalidate = 86400;
@@ -231,6 +231,45 @@ export default async function BankDetailPage({
     { label: common("breadcrumbHome"), href: "/" },
     { label: t("title"), href: "/banks" },
     { label: displayName },
+  ];
+
+  // Answers are rendered from this record only, so they stay correct after the
+  // owner edits a code instead of turning into stale template copy.
+  const codeSummary = identifiers
+    .slice(0, 4)
+    .map((identifier) => formatIdentifier(identifier.type, identifier.value))
+    .join(", ");
+  const faqItems = [
+    {
+      question: t("faqIdentifiersQ", { bank: displayName }),
+      answer:
+        identifiers.length > 0
+          ? t("faqIdentifiersA", {
+              bank: displayName,
+              codes: codeSummary,
+              count: identifiers.length,
+            })
+          : t("faqIdentifiersANone", { bank: displayName }),
+    },
+    {
+      question: t("faqBranchesQ", { bank: displayName }),
+      answer: t("faqBranchesA", {
+        bank: displayName,
+        count: branchCount,
+        country: country?.nameEn ?? view.country,
+      }),
+    },
+    ...(headOffice
+      ? [
+          {
+            question: t("faqHqQ", { bank: displayName }),
+            answer: t("faqHqA", {
+              bank: displayName,
+              office: [headOffice.name, headOffice.city].filter(Boolean).join(", "),
+            }),
+          },
+        ]
+      : []),
   ];
 
   // Other institutions in the same country.
@@ -569,7 +608,34 @@ export default async function BankDetailPage({
         </section>
       )}
 
+      {/* ── FAQ ───────────────────────────────────────────────────────── */}
+      <section aria-labelledby="bank-faq" className="mt-16">
+        <h2 id="bank-faq" className="text-xl font-semibold tracking-tight">
+          {t("faqTitle")}
+        </h2>
+        <div className="mt-4 divide-y divide-border rounded-xl border border-border bg-card">
+          {faqItems.map((item) => (
+            <details
+              key={item.question}
+              className="group px-6 py-4 [&_summary::-webkit-details-marker]:hidden"
+            >
+              <summary className="flex cursor-pointer items-center justify-between gap-4 text-sm font-medium">
+                {item.question}
+                <span
+                  className="text-muted-foreground transition-transform group-open:rotate-90"
+                  aria-hidden
+                >
+                  ›
+                </span>
+              </summary>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.answer}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
       <JsonLd data={breadcrumbListJsonLd(breadcrumbs, locale)} />
+      <JsonLd data={faqPageJsonLd(faqItems)} />
       <JsonLd
         data={{
           "@context": "https://schema.org",
