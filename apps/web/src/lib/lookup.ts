@@ -8,7 +8,7 @@
  *
  * Kept free of data imports: this module is pulled into a client component.
  */
-export type LookupType = "SWIFT" | "ABA_ROUTING" | "SORT_CODE" | "BSB" | "CNAPS";
+export type LookupType = "SWIFT" | "ABA_ROUTING" | "SORT_CODE" | "BSB" | "IFSC" | "CNAPS";
 
 export interface LookupTypeConfig {
   /** Path segment of the public API endpoint, e.g. "sort-code" for /v1/sort-code. */
@@ -69,6 +69,16 @@ export const lookupConfigs: Record<LookupType, LookupTypeConfig> = {
     placeholder: "062-001",
     inputMode: "numeric",
     valueKey: "bsb",
+  },
+  IFSC: {
+    endpoint: "ifsc",
+    messageKey: "ifsc",
+    basePath: "/ifsc",
+    pattern: /^[A-Z]{4}0[A-Z0-9]{6}$/,
+    normalize: (raw) => raw.replace(/[\s-]/g, "").toUpperCase(),
+    placeholder: "SBIN0001234",
+    inputMode: "text",
+    valueKey: "ifsc",
   },
   CNAPS: {
     endpoint: "cnaps",

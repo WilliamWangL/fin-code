@@ -23,7 +23,8 @@ public final class ApiScopes {
      * access with their plan limits; every other /v1 path still requires a key.
      */
     private static final String[] PUBLIC_IDENTIFIER_PREFIXES =
-            {"/v1/swift", "/v1/routing", "/v1/bin", "/v1/iban", "/v1/sort-code", "/v1/bsb", "/v1/cnaps"};
+            {"/v1/swift", "/v1/routing", "/v1/bin", "/v1/iban", "/v1/sort-code", "/v1/bsb", "/v1/ifsc",
+                    "/v1/cnaps"};
 
     private ApiScopes() {
     }
