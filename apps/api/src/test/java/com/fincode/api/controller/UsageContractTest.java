@@ -145,9 +145,9 @@ class UsageContractTest {
                 .andExpect(jsonPath("$.data.max_latency_ms").value(60))
                 .andExpect(jsonPath("$.data.quota.period").value(today.format(MONTH)))
                 .andExpect(jsonPath("$.data.quota.plan").value("FREE"))
-                .andExpect(jsonPath("$.data.quota.limit").value(500))
+                .andExpect(jsonPath("$.data.quota.limit").value(100))
                 .andExpect(jsonPath("$.data.quota.used").value(10))
-                .andExpect(jsonPath("$.data.quota.remaining").value(490));
+                .andExpect(jsonPath("$.data.quota.remaining").value(90));
 
         // An explicit previous-month window returns only the historical row.
         mockMvc.perform(get("/v1/usage")

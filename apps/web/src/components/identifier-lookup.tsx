@@ -20,7 +20,7 @@ interface LookupBank {
   country?: string | null;
 }
 
-/** Union of the fields the five public lookups can return. */
+/** Union of the fields the public lookups can return. */
 interface LookupPayload {
   bank: LookupBank | null;
   city?: string | null;
@@ -33,7 +33,10 @@ interface LookupPayload {
   routing_number?: string;
   sort_code?: string;
   bsb?: string;
+  ifsc?: string;
   cnaps?: string;
+  /** Indian branch clearing code, returned by the IFSC lookup only. */
+  micr?: string | null;
   checksum_valid?: boolean;
   source?: { name?: string | null } | null;
 }
@@ -113,11 +116,14 @@ export function IdentifierLookup({ type }: { type: LookupType }) {
     const rows: Array<{ label: string; value: string | null }> = [
       { label: t("lookupBankLabel"), value: bankName },
     ];
-    if (type === "BSB" || type === "CNAPS") {
+    if (type === "BSB" || type === "CNAPS" || type === "IFSC") {
       rows.push({ label: t("lookupBranchLabel"), value: data.branch ?? null });
     }
     if (type === "CNAPS") {
       rows.push({ label: t("lookupBankCodeLabel"), value: data.bank_code ?? null });
+    }
+    if (type === "IFSC") {
+      rows.push({ label: t("lookupMicrLabel"), value: data.micr ?? null });
     }
     rows.push({ label: t("lookupCityLabel"), value: data.city ?? null });
     if (type === "ABA_ROUTING" || type === "BSB") {
