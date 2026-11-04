@@ -1,0 +1,54 @@
+name: Mirror to GitLab
+
+# Push mirror for the GitLab product page (docs/github-hub.md §6). GitHub stays
+# the source of truth; GitLab only hosts a read-only copy so the project also
+# surfaces on a second code-hosting domain.
+#
+# One-time setup (Settings -> Secrets and variables -> Actions):
+#   Secret   GITLAB_SSH_PRIVATE_KEY   deploy key with Write access on the GitLab repo
+#   Variable GITLAB_REPO              git@gitlab.com:<owner>/<repo>.git
+#
+# The job is a no-op when either value is missing, so forks stay green.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: mirror-gitlab
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    name: Push mirror to GitLab
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history and every branch: the mirror must not lose commits.
+          fetch-depth: 0
+
+      - name: Push all branches and tags
+        env:
+          GITLAB_REPO: ${{ vars.GITLAB_REPO }}
+          GITLAB_SSH_PRIVATE_KEY: ${{ secrets.GITLAB_SSH_PRIVATE_KEY }}
+        run: |
+          set -eu
+          if [ -z "${GITLAB_REPO}" ] || [ -z "${GITLAB_SSH_PRIVATE_KEY}" ]; then
+            echo "GITLAB_REPO / GITLAB_SSH_PRIVATE_KEY not configured - skipping mirror."
+            exit 0
+          fi
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${GITLAB_SSH_PRIVATE_KEY}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H gitlab.com >> ~/.ssh/known_hosts 2>/dev/null
+
+          # checkout only creates the checked-out branch locally, so push the
+          # remote-tracking refs into refs/heads explicitly instead of --mirror.
+          # --prune deletes branches that no longer exist upstream.
+          git fetch --prune --tags origin '+refs/heads/*:refs/remotes/origin/*'
+          git push --prune "${GITLAB_REPO}" \
+            '+refs/remotes/origin/*:refs/heads/*' \
+            '+refs/tags/*:refs/tags/*'

@@ -1,0 +1,53 @@
+FinCode Source-Available License
+
+Copyright (c) 2026 the FinCode authors. All rights reserved.
+
+This repository is published so that developers can read the implementation,
+evaluate the product and run it locally. It is NOT an open source license:
+no right is granted other than the ones stated below.
+
+1. Permitted use
+
+   You may view, clone, and run this repository, and modify it locally, for the
+   purpose of evaluating FinCode, learning from it, or reporting issues and
+   contributing patches back to this repository.
+
+2. Restrictions
+
+   You may not:
+   a. redistribute, sublicense, publish or otherwise make this repository or a
+      derivative work available to third parties, in whole or in part;
+   b. deploy it, or a derivative work, as a public or commercial service;
+   c. sell, rent, or offer the software or any service substantially derived
+      from it as a paid product;
+   d. remove or alter this license or any copyright notice.
+
+3. Third-party components and SDKs
+
+   The API client libraries published in the separate repositories
+   WilliamWangL/fincode-python, fincode-java, fincode-go and fincode-php are
+   licensed under the MIT License and are governed by the license file in each
+   of those repositories. Third-party dependencies keep their own licenses.
+
+4. Trademarks
+
+   No license is granted for the FinCode name, logo or domain names.
+
+5. Data
+
+   The data sets under data/ are redistributed here for development and testing
+   only. Rights in the underlying source data remain with their respective
+   providers; consult each provider's terms before using the data elsewhere.
+
+6. No warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE
+   USE OF THE SOFTWARE.
+
+7. Commercial licensing
+
+   For any use outside the scope of section 1, contact the maintainer through
+   https://fincode.ecommica.com/en/contact.
