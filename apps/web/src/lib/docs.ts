@@ -23,6 +23,8 @@ export interface DocSection {
   body?: string;
   code?: DocCode[];
   table?: { headers: string[]; rows: DocCell[][] };
+  /** Action buttons under the body, e.g. one-click install links. */
+  links?: { label: string; href: string }[];
 }
 
 export interface DocPage {
@@ -35,6 +37,23 @@ export interface DocPage {
 
 const API = siteConfig.apiBaseUrl;
 const SITE = siteConfig.url;
+
+/** Tarball attached to every mcp-v* tag by .github/workflows/release-mcp.yml. */
+const MCP_RELEASE_TARBALL =
+  "https://github.com/WilliamWangL/fin-code/releases/download/mcp-v0.1.0/fincode-mcp-0.1.0.tgz";
+
+/**
+ * Cursor installs a stdio server from a link whose `config` query parameter is
+ * the base64 of one mcpServers entry.
+ */
+function cursorInstallLink(): string {
+  const config = {
+    command: "npx",
+    args: ["-y", "-p", MCP_RELEASE_TARBALL, "--", "fincode-mcp"],
+  };
+  const encoded = Buffer.from(JSON.stringify(config), "utf8").toString("base64");
+  return `cursor://anysphere.cursor-deeplink/mcp/install?name=fincode&config=${encodeURIComponent(encoded)}`;
+}
 
 /** Official client libraries, each published as its own repository. */
 const SDK_REPOS = {
@@ -1339,7 +1358,7 @@ do {
           code(
             "bash",
             `# tarball from the latest mcp-v* release (no npm account needed)
-npx -y -p https://github.com/WilliamWangL/fin-code/releases/download/mcp-v0.1.0/fincode-mcp-0.1.0.tgz -- fincode-mcp
+npx -y -p ${MCP_RELEASE_TARBALL} -- fincode-mcp
 
 # npm package, once published
 npx -y fincode-mcp
@@ -1350,6 +1369,13 @@ cd fin-code/apps/mcp && npm install && npm run build
 node dist/index.js`,
             "bash",
           ),
+        ],
+        links: [
+          { label: "Install in Cursor", href: cursorInstallLink() },
+          {
+            label: "Package source",
+            href: "https://github.com/WilliamWangL/fin-code/tree/main/apps/mcp",
+          },
         ],
       },
       {

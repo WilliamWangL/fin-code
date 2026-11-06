@@ -157,6 +157,19 @@ export default async function DocPage({
                 </Table>
               </div>
             )}
+            {section.links && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {section.links.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="inline-flex items-center rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium transition-colors hover:border-primary hover:text-primary"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            )}
           </section>
         ))}
       </div>
