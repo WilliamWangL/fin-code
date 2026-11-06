@@ -1,0 +1,69 @@
+name: Release MCP tarball
+
+# Distribution channel that needs no npm account: every `mcp-v*` tag builds
+# apps/mcp and attaches the npm tarball to a GitHub Release.
+#
+#   npx -y -p https://github.com/WilliamWangL/fin-code/releases/download/mcp-v0.1.0/fincode-mcp-0.1.0.tgz -- fincode-mcp
+#
+# It keeps working after npm publishing is enabled, as a fallback for networks
+# that cannot reach the registry. The tag must match package.json:
+# mcp-v0.1.0 <-> "version": "0.1.0".
+on:
+  push:
+    tags:
+      - "mcp-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: build and attach tarball
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mcp
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/mcp/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Check the tag matches the package version
+        run: |
+          tag="${GITHUB_REF#refs/tags/mcp-v}"
+          version="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag mcp-v$tag does not match package version $version"
+            exit 1
+          fi
+
+      - name: Pack
+        id: pack
+        run: |
+          file="$(npm pack --pack-destination "$RUNNER_TEMP" | tail -1)"
+          echo "file=$RUNNER_TEMP/$file" >> "$GITHUB_OUTPUT"
+          echo "packed $RUNNER_TEMP/$file"
+
+      - name: Attach the tarball to the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${{ steps.pack.outputs.file }}" --clobber
+          else
+            gh release create "$tag" "${{ steps.pack.outputs.file }}" \
+              --title "fincode-mcp ${tag#mcp-v}" \
+              --notes "MCP server for the FinCode API. Install in Cursor, Claude Code or Claude Desktop with npx -y -p <this release tarball> -- fincode-mcp, or from npm once published."
+          fi
