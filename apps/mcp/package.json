@@ -1,0 +1,69 @@
+{
+  "name": "fincode-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that exposes the FinCode global banking directory API to AI coding tools such as Cursor, Claude Code and Claude Desktop.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "fincode-mcp": "dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "dev": "node --import tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "smoke": "node --import tsx scripts/smoke.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "fincode",
+    "banking",
+    "iban",
+    "swift",
+    "bic",
+    "ifsc",
+    "cnaps",
+    "sort-code",
+    "bsb",
+    "routing-number",
+    "bin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WilliamWangL/fin-code.git",
+    "directory": "apps/mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/WilliamWangL/fin-code/issues"
+  },
+  "homepage": "https://fincode.ecommica.com/docs/mcp-server",
+  "publishConfig": {
+    "access": "public"
+  }
+}

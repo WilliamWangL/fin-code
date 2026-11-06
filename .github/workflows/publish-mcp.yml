@@ -1,0 +1,81 @@
+name: Publish MCP server
+
+# Publishes apps/mcp to npm as `fincode-mcp` through Trusted Publishing (OIDC).
+#
+# npm is retiring long-lived publish tokens: tokens that bypass 2FA are already
+# restricted for account changes (Aug 2026) and token based direct publishing
+# stops in Jan 2027. Trusted Publishing exchanges the GitHub OIDC token for a
+# short-lived credential instead, so no NPM_TOKEN secret is involved.
+#
+# One-time setup on npmjs.com (needs web access):
+#   Settings -> Trusted Publishing -> GitHub Actions
+#   organization: WilliamWangL | repository: fin-code
+#   workflow filename: publish-mcp.yml | environment: none
+# A package that has never been published is claimed with the same form as a
+# "pending trusted publisher".
+#
+# Versioning: bump apps/mcp/package.json and push first, then run this workflow.
+# The distribution channel is release-mcp.yml, triggered by an mcp-v* tag.
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Build and pack without uploading
+        type: boolean
+        default: false
+
+concurrency:
+  group: publish-mcp
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: npm publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC token consumed by Trusted Publishing
+    defaults:
+      run:
+        working-directory: apps/mcp
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/mcp/package-lock.json
+
+      # registry-url is deliberately not set: setup-node would write an
+      # _authToken placeholder that requires NPM_TOKEN, which this workflow
+      # must not depend on. npm uses the public registry by default.
+      - name: Install npm with Trusted Publishing support
+        run: |
+          npm install -g npm@11
+          npm --version
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Type check and test
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Refuse to republish an existing version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if npm view "fincode-mcp@$version" version >/dev/null 2>&1; then
+            echo "::error::fincode-mcp@$version is already on npm - bump package.json first"
+            exit 1
+          fi
+
+      - name: Dry run
+        if: ${{ inputs.dry-run }}
+        run: npm publish --dry-run --access public
+
+      - name: Publish
+        if: ${{ !inputs.dry-run }}
+        run: npm publish --provenance --access public

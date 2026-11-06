@@ -1046,18 +1046,27 @@ GET ${API}/countries/{code}/iban-format`,
               "PHP 8.1+ (ext-curl)",
               { text: "WilliamWangL/fincode-php", href: SDK_REPOS.php },
             ],
+            [
+              "AI coding tools (MCP)",
+              "fincode-mcp",
+              "Node 18+ (Cursor, Claude Code)",
+              { text: "fincode-mcp on npm", href: "https://www.npmjs.com/package/fincode-mcp" },
+            ],
           ],
         },
       },
       {
         id: "install",
         title: "Install",
-        body: "TypeScript is a single file you copy into your project; the other languages install from GitHub with their native tooling.",
+        body: "TypeScript is a single file you copy into your project; the other languages install from GitHub with their native tooling; the MCP server runs from npx with no install step at all.",
         code: [
           code(
             "bash",
             `# TypeScript / JavaScript - single file, no dependencies
 curl -O ${SITE}/sdk/fincode.ts
+
+# MCP server - configure it in your AI tool and let npx fetch it
+npx -y fincode-mcp
 
 # Python
 pip install "git+https://github.com/WilliamWangL/fincode-python.git"
@@ -1307,6 +1316,144 @@ do {
         id: "versioning",
         title: "Versioning and support",
         body: "Every client targets API V1 (base path /v1) and is versioned in lockstep with it. Payloads are additive within V1 — new fields may appear at any time — so read by key instead of by position and ignore unknown fields. Breaking changes ship under a new version prefix, and each repository is tagged per release so you can pin a tag in your lockfile. File issues at the repository of the client you use.",
+      },
+    ],
+  },
+  {
+    slug: "mcp-server",
+    title: "MCP server for AI coding tools",
+    description:
+      "Expose the FinCode directory to Cursor, Claude Code and Claude Desktop over the Model Context Protocol: bank code lookups, IBAN validation and institution search straight from the assistant.",
+    group: "reference",
+    sections: [
+      {
+        id: "overview",
+        title: "Overview",
+        body: "fincode-mcp is a stdio MCP server that wraps this API. Instead of guessing a SWIFT code or inventing an IFSC, the assistant calls a tool and answers from the same dataset the API serves. Fourteen tools are exposed: nine identifier tools (one per family, plus IBAN validation) work without an API key, the five directory tools need one. The server runs locally on Node.js 18+ and talks to the API over HTTPS.",
+      },
+      {
+        id: "install",
+        title: "Install",
+        body: "Two install sources, same server: the npm package once it is published, or the tarball attached to every mcp-v* release, which needs no npm account and works today. There is nothing to install globally - npx fetches the source on each start. Running from a source checkout is also supported: build the workspace package and point your AI tool at the compiled entry point.",
+        code: [
+          code(
+            "bash",
+            `# tarball from the latest mcp-v* release (no npm account needed)
+npx -y -p https://github.com/WilliamWangL/fin-code/releases/download/mcp-v0.1.0/fincode-mcp-0.1.0.tgz -- fincode-mcp
+
+# npm package, once published
+npx -y fincode-mcp
+
+# or from a source checkout
+git clone https://github.com/WilliamWangL/fin-code.git
+cd fin-code/apps/mcp && npm install && npm run build
+node dist/index.js`,
+            "bash",
+          ),
+        ],
+      },
+      {
+        id: "cursor",
+        title: "Cursor",
+        body: "Register the server in ~/.cursor/mcp.json for every project or in .cursor/mcp.json for one, then reload the window. Remove the env block to run keyless. Before the first npm release, swap args for [\"-y\", \"-p\", \"<release tarball URL>\", \"--\", \"fincode-mcp\"].",
+        code: [
+          code(
+            "json",
+            `{
+  "mcpServers": {
+    "fincode": {
+      "command": "npx",
+      "args": ["-y", "fincode-mcp"],
+      "env": { "FINCODE_API_KEY": "sk_live_..." }
+    }
+  }
+}`,
+            "~/.cursor/mcp.json",
+          ),
+        ],
+      },
+      {
+        id: "claude",
+        title: "Claude Code and Claude Desktop",
+        body: "Claude Code registers the server with one command. Claude Desktop accepts the same mcpServers block as Cursor, inside claude_desktop_config.json.",
+        code: [
+          code(
+            "bash",
+            `claude mcp add fincode --env FINCODE_API_KEY=sk_live_... -- npx -y fincode-mcp`,
+            "bash",
+          ),
+        ],
+      },
+      {
+        id: "tools",
+        title: "Tools",
+        body: "Every REST lookup has its own tool with a semantically named argument, so the model chooses by identifier family rather than guessing a type. Six digits fit a UK/Ireland sort code, an Australian BSB and a card BIN: pick lookup_sort_code, lookup_bsb or lookup_bin from the user's country instead of trying all three.",
+        table: {
+          headers: ["Tool", "What it does", "API key"],
+          rows: [
+            ["lookup_swift_code", "SWIFT/BIC code to institution, city and code layout.", "no"],
+            ["lookup_iban", "Validate an IBAN and resolve the issuing institution (name, SWIFT/BIC, city).", "no"],
+            [
+              "validate_iban",
+              "Country, length, structure and MOD-97 checksum; parses the bank code and account number.",
+              "no",
+            ],
+            ["lookup_ifsc", "Indian IFSC to bank branch, with the 9-digit MICR when published.", "no"],
+            ["lookup_cnaps", "Chinese CNAPS code to bank branch and 3-digit bank code.", "no"],
+            ["lookup_routing_number", "US ABA routing number with the checksum verdict, city and state.", "no"],
+            ["lookup_sort_code", "UK/Ireland 6-digit sort code to bank branch.", "no"],
+            ["lookup_bsb", "Australian 6-digit BSB to bank branch, city and state.", "no"],
+            ["lookup_bin", "6-8 digit card BIN/IIN to issuer, brand, type and country.", "no"],
+            ["search_banks", "Full-text search over institutions, with the identifiers each bank carries.", "yes"],
+            ["get_bank", "One institution by id (inst_...) or slug: identifiers, website, branch count.", "yes"],
+            ["list_bank_branches", "Cursor-paginated branches, filterable by free text or city.", "yes"],
+            ["list_countries", "Country reference data, filterable by name/code or IBAN participation.", "yes"],
+            ["get_country", "One country plus its national IBAN layout and an example IBAN.", "yes"],
+          ],
+        },
+      },
+      {
+        id: "configuration",
+        title: "Configuration",
+        body: "Every variable is passed through the env block of the MCP configuration. Only the API key matters for normal use; the rest exist for self-hosted deployments and slow networks.",
+        table: {
+          headers: ["Variable", "Default", "Description"],
+          rows: [
+            ["FINCODE_API_KEY", "unset", "Key with the sk_ prefix, sent as Authorization: Bearer. Optional."],
+            ["FINCODE_API_BASE_URL", API, "API root including /v1; point it at a self-hosted instance."],
+            ["FINCODE_MCP_TIMEOUT_MS", "15000", "Per-attempt timeout; a timeout is retried once."],
+            [
+              "FINCODE_MCP_MAX_RETRIES",
+              "1",
+              "Retries after the first attempt for 429, 502, 503, 504 and network errors.",
+            ],
+          ],
+        },
+      },
+      {
+        id: "keyless",
+        title: "Keyless mode and limits",
+        body: "Without FINCODE_API_KEY the nine identifier tools still answer, from the anonymous bucket of 10 requests per minute per IP. The directory tools reply with MISSING_API_KEY until a key is configured. With a key, every call counts against the plan quota and the remaining budget is reported back in meta.rate_limit_remaining. A valid IBAN confirms format only, never account existence - the server tells the model to say so.",
+      },
+      {
+        id: "errors",
+        title: "How results are reported",
+        body: "Each tool returns one JSON document. A value missing from the dataset is an answer, not a failure: found: false with the API's error code. Transport, authentication and quota failures set isError so the assistant stops and explains what to fix. Error codes match the API exactly, so the same troubleshooting applies as for direct HTTP calls.",
+        table: {
+          headers: ["Code", "Meaning", "What to do"],
+          rows: [
+            ["MISSING_API_KEY", "A directory tool was called without a key.", "Set FINCODE_API_KEY and restart the server."],
+            ["UNAUTHORIZED / API_KEY_EXPIRED", "The key is missing, invalid or revoked.", "Issue a new key in the dashboard."],
+            ["QUOTA_EXCEEDED", "The plan's monthly quota is exhausted.", "Upgrade the plan or wait for the next period."],
+            [
+              "RATE_LIMITED",
+              "Keyless calls share 10 requests per minute per IP.",
+              "Retry after the retry_after_seconds hint, or use an API key.",
+            ],
+            ["NOT_FOUND", "The value is not in the dataset.", "Report it as unknown data; not a failure."],
+            ["INVALID_IBAN, INVALID_IFSC, ...", "Validation failed for that identifier type.", "Fix the input; the message names the rule."],
+          ],
+        },
       },
     ],
   },
