@@ -1,0 +1,52 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.williamwangl/fincode-mcp",
+  "description": "Look up SWIFT, IBAN, IFSC, CNAPS, sort code, BSB, routing and BIN codes, and search banks.",
+  "version": "0.1.0",
+  "websiteUrl": "https://fincode.ecommica.com/docs/mcp-server",
+  "repository": {
+    "url": "https://github.com/WilliamWangL/fin-code",
+    "source": "github",
+    "subfolder": "apps/mcp"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "fincode-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "FINCODE_API_KEY",
+          "description": "Key with the sk_ prefix. Optional: identifier lookups work without it, the five directory tools need it.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "FINCODE_API_BASE_URL",
+          "description": "API root including /v1, for self-hosted deployments.",
+          "isRequired": false,
+          "format": "string",
+          "default": "https://api.ecommica.com/v1"
+        },
+        {
+          "name": "FINCODE_MCP_TIMEOUT_MS",
+          "description": "Per-attempt timeout in milliseconds; a timeout is retried once.",
+          "isRequired": false,
+          "format": "number",
+          "default": "15000"
+        },
+        {
+          "name": "FINCODE_MCP_MAX_RETRIES",
+          "description": "Retries after the first attempt for 429, 502, 503, 504 and network errors.",
+          "isRequired": false,
+          "format": "number",
+          "default": "1"
+        }
+      ]
+    }
+  ]
+}
