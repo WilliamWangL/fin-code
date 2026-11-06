@@ -4,7 +4,7 @@ An MCP (Model Context Protocol) server that exposes the [FinCode](https://fincod
 
 - Fourteen tools over stdio: one per identifier family (SWIFT, IBAN, IFSC, CNAPS, ABA routing, sort code, BSB, card BIN), IBAN validation, and the bank, branch and country directory.
 - Each identifier tool takes a single semantically named argument (`swift_code`, `routing_number`, `sort_code`, ...), so the model picks the tool by name instead of routing a value through a detector.
-- Works **without an API key** for the eight public identifier lookups (10 requests per minute per IP); an API key in `FINCODE_API_KEY` unlocks the directory tools and plan-level limits.
+- Works **without an API key** for the nine public identifier tools (10 requests per minute per IP); an API key in `FINCODE_API_KEY` unlocks the directory tools and plan-level limits.
 - Zero configuration beyond `npx`: Node 18+, no install step, no local data. Install from npm or from the tarball attached to each `mcp-v*` GitHub Release.
 
 ## Quick start
@@ -119,7 +119,7 @@ The package lives in the FinCode monorepo at `apps/mcp`; the API contract it tar
 Two workflows, both keyed to the version in `package.json`:
 
 - `release-mcp.yml` runs on every `mcp-v*` tag, builds the package and attaches the tarball to a GitHub Release. No npm account needed, so this is the channel while the package is unpublished.
-- `publish-mcp.yml` publishes to npm through Trusted Publishing (OIDC). It runs manually and needs a one-time binding on npmjs.com: organization `WilliamWangL`, repository `fin-code`, workflow `publish-mcp.yml`. npm restricts tokens that bypass 2FA (account changes since Aug 2026, direct publishing from Jan 2027), so the workflow carries no `NPM_TOKEN` secret.
+- `publish-mcp.yml` publishes to npm through Trusted Publishing (OIDC). It runs manually and needs a one-time binding on npmjs.com: organization `WilliamWangL`, repository `fin-code`, workflow `publish-mcp.yml`. npm restricts tokens that bypass 2FA (account changes since Aug 2026, direct publishing from Jan 2027), so the workflow carries no `NPM_TOKEN` secret. After the upload it publishes `server.json` to the official MCP Registry with the same GitHub OIDC token.
 
 ```bash
 cd apps/mcp
@@ -129,6 +129,10 @@ git commit -am "chore(mcp): release $version"
 git tag "mcp-v$version"
 git push origin main --tags
 ```
+
+## Name
+
+`fincode-mcp` shares a name with an unrelated MCP server for the Japanese payment gateway fincode byGMO. This package is the FinCode bank data server and has no connection to them. The npm package name is free; the GitHub namespace `io.github.williamwangl/fincode-mcp` keeps both listings distinct in the official registry.
 
 ## License
 

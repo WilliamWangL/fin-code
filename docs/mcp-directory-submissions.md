@@ -4,6 +4,19 @@ Copy-paste material for listing `fincode-mcp` in MCP registries and directories.
 Update the install command once the package is on npm; until then use the release
 tarball, which every `mcp-v*` tag produces.
 
+## Current status
+
+| Item | State |
+| --- | --- |
+| Release tarball | published — `mcp-v0.1.0` (39 files, 23.5 kB) |
+| Official registry manifest | `apps/mcp/server.json`, schema 2025-12-11, passes `mcp-publisher validate` |
+| npm package | not published — this blocks the Official Registry and Smithery |
+| Website | https://fincode.ecommica.com/docs/mcp-server with a Cursor install link |
+
+Name collision: `fincode-mcp` also names an unrelated Japanese payment gateway MCP
+(`fincode-byGMO/fincode-mcp`). Lead every listing with "bank data" so search
+results do not blur the two.
+
 ## Identity
 
 | Field | Value |
@@ -96,7 +109,7 @@ After the npm release, replace the `-p <tarball>` pair with nothing and use
 
 | Channel | Where | Needs npm first | How |
 | --- | --- | --- | --- |
-| Official MCP Registry | https://registry.modelcontextprotocol.io | yes | `server.json` is committed in `apps/mcp`; publish with the `mcp-publisher` CLI, namespace `io.github.williamwangl` verified through GitHub |
+| Official MCP Registry | https://registry.modelcontextprotocol.io | yes | `apps/mcp/server.json` (schema 2025-12-11, namespace `io.github.williamwangl`). `publish-mcp.yml` runs `mcp-publisher login github-oidc` and publishes right after the npm upload; the manual path is only a fallback: `mcp-publisher login github && mcp-publisher publish` |
 | Smithery | https://smithery.ai | yes | publish from the npm package; add a `smithery.yaml` if the form requires one |
 | Glama | https://glama.ai/mcp/servers | no | indexes public GitHub repositories; claim the listing to edit the description |
 | mcp.so | https://mcp.so | no | submit form with the repository URL and the install command |

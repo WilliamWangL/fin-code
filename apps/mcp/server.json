@@ -1,6 +1,7 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.williamwangl/fincode-mcp",
+  "title": "FinCode bank data",
   "description": "Look up SWIFT, IBAN, IFSC, CNAPS, sort code, BSB, routing and BIN codes, and search banks.",
   "version": "0.1.0",
   "websiteUrl": "https://fincode.ecommica.com/docs/mcp-server",

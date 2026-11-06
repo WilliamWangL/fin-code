@@ -79,3 +79,21 @@ jobs:
       - name: Publish
         if: ${{ !inputs.dry-run }}
         run: npm publish --provenance --access public
+
+      # The official MCP Registry resolves packages through their registry, so it
+      # is published only after npm has the version. Listing there is what puts
+      # the server in front of clients that read the registry.
+      - name: Publish to the MCP Registry
+        if: ${{ !inputs.dry-run }}
+        run: |
+          curl -sSL -o "${RUNNER_TEMP}/mcp-publisher.tgz" \
+            https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz
+          tar -xzf "${RUNNER_TEMP}/mcp-publisher.tgz" -C "${RUNNER_TEMP}" mcp-publisher
+          "${RUNNER_TEMP}/mcp-publisher" login github-oidc
+          ok=0
+          for attempt in 1 2 3 4 5; do
+            if "${RUNNER_TEMP}/mcp-publisher" publish; then ok=1; break; fi
+            echo "attempt ${attempt} failed, retrying in 20s"
+            sleep 20
+          done
+          [ "$ok" = 1 ] || { echo "::error::MCP Registry publish failed"; exit 1; }
