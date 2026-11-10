@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import type { BreadcrumbItem } from "@/components/breadcrumb";
+import { JsonLd } from "@/components/json-ld";
 import { PageHeader } from "@/components/page-header";
 import {
   Table,
@@ -12,7 +14,8 @@ import {
 } from "@/components/ui/table";
 import { Link } from "@/i18n/navigation";
 import { countryByIso2, ibanFormats } from "@/lib/data";
-import { alternatesFor } from "@/lib/site";
+import { alternatesFor, siteConfig } from "@/lib/site";
+import { breadcrumbListJsonLd } from "@/lib/structured-data";
 
 import { IbanValidator } from "./iban-validator";
 
@@ -22,11 +25,29 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "tool" });
+  // Localized title/description keep the /en and /zh copies from sharing an
+  // identical <head>, and og:url pins the page to its own canonical.
+  const alternates = alternatesFor(locale, "/iban-checker");
+  const title = t("ibanMetaTitle");
+  const description = t("ibanMetaDescription");
   return {
-    title: "IBAN Checker — Validate IBAN & Look Up the Bank (SWIFT/BIC)",
-    description:
-      "Free IBAN validator: check format, length, MOD-97 checksum and country structure, extract the bank code and account number, and look up the bank name and SWIFT/BIC code.",
-    alternates: alternatesFor(locale, "/iban-checker"),
+    title,
+    description,
+    alternates,
+    openGraph: {
+      type: "website",
+      url: alternates.canonical,
+      siteName: siteConfig.name,
+      title,
+      description,
+      locale,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 
@@ -40,6 +61,11 @@ export default async function IbanCheckerPage({
   const t = await getTranslations({ locale, namespace: "tool" });
   const common = await getTranslations({ locale, namespace: "common" });
 
+  const breadcrumbs: BreadcrumbItem[] = [
+    { label: common("breadcrumbHome"), href: "/" },
+    { label: t("ibanCheckerTitle") },
+  ];
+
   const sorted = [...ibanFormats].sort((a, b) =>
     (countryByIso2[a.countryCode]?.nameEn ?? a.countryCode).localeCompare(
       countryByIso2[b.countryCode]?.nameEn ?? b.countryCode,
@@ -51,7 +77,7 @@ export default async function IbanCheckerPage({
       <PageHeader
         title={t("ibanCheckerTitle")}
         description={t("ibanCheckerSubtitle")}
-        breadcrumbs={[{ label: "IBAN Checker" }]}
+        breadcrumbs={breadcrumbs}
       />
 
       <div className="mt-8 max-w-3xl">
@@ -104,6 +130,8 @@ export default async function IbanCheckerPage({
           </Table>
         </div>
       </section>
+
+      <JsonLd data={breadcrumbListJsonLd(breadcrumbs, locale)} />
     </div>
   );
 }
