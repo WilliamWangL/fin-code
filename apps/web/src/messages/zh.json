@@ -283,6 +283,8 @@
     },
     "ibanCheckerTitle": "IBAN 校验器",
     "ibanCheckerSubtitle": "校验 IBAN 格式、国家、长度、MOD-97 校验位与 BBAN 结构，并查询 IBAN 对应的银行信息。",
+    "binMetaTitle": "BIN 查询工具 — 查卡组织、卡类型与发卡行",
+    "binMetaDescription": "免费 BIN 查询工具：输入卡号前 6-8 位 BIN，识别卡组织、卡类型与发卡行，并附 BIN 基础知识与常见问题解答。",
     "binCheckerTitle": "BIN 查询工具",
     "binCheckerSubtitle": "输入卡号前 6-8 位 BIN，识别卡组织、卡类型与发卡行。",
     "enterBin": "输入卡 BIN",

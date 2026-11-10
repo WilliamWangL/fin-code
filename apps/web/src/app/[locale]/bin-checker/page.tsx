@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { PageHeader } from "@/components/page-header";
-import { alternatesFor } from "@/lib/site";
+import { alternatesFor, siteConfig } from "@/lib/site";
 
 import { BinChecker } from "./bin-checker";
 
@@ -12,11 +12,30 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "tool" });
+  // Localized title/description keep the /en and /zh copies from sharing an
+  // identical <head>, and og:url pins the page to its own canonical so social
+  // and search consumers see the same URL Google indexes.
+  const alternates = alternatesFor(locale, "/bin-checker");
+  const title = t("binMetaTitle");
+  const description = t("binMetaDescription");
   return {
-    title: "Card BIN Checker — Look Up Card Brand & Issuing Bank",
-    description:
-      "Free card BIN checker: look up any BIN (the first 6 to 8 digits of a card number) to identify the card brand, funding type and issuing bank.",
-    alternates: alternatesFor(locale, "/bin-checker"),
+    title,
+    description,
+    alternates,
+    openGraph: {
+      type: "website",
+      url: alternates.canonical,
+      siteName: siteConfig.name,
+      title,
+      description,
+      locale,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 

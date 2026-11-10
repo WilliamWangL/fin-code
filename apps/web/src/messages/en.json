@@ -283,6 +283,8 @@
     },
     "ibanCheckerTitle": "IBAN Checker",
     "ibanCheckerSubtitle": "Validate IBAN format, country, length, MOD-97 checksum and BBAN structure, and look up the bank behind the IBAN.",
+    "binMetaTitle": "Card BIN Checker — Look Up Card Brand & Issuing Bank",
+    "binMetaDescription": "Free card BIN checker: look up any BIN (the first 6 to 8 digits of a card number) to identify the card brand, funding type and issuing bank.",
     "binCheckerTitle": "Card BIN Checker",
     "binCheckerSubtitle": "Look up any card BIN — the first 6 to 8 digits of a card number — to identify the card brand, funding type and issuing bank.",
     "enterBin": "Enter card BIN",
